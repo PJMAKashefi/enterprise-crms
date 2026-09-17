@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 155" width="100%" height="100%">
+  <defs>
+    <!-- 
+      Precise geometry for Letter M:
+      2 top peaks at y=40, center notch going DOWN to y=88.
+      Outer straight vertical pillars at x=190 and x=276 from y=130 up to y=40.
+      Center V apex at bottom y=130.
+      Inner bottom cutouts going UP from y=130 to y=78.
+      This is strictly and unmistakably an M.
+    -->
+    <clipPath id="pjmak-m-clip">
+      <polygon points="190,130 190,40 214,40 233,88 252,40 276,40 276,130 256,130 256,76 242,112 224,112 210,76 210,130" />
+    </clipPath>
+  </defs>
+
+  <!-- Golden Crown directly centered above the M (center x = 233) -->
+  <g transform="translate(233, 24)">
+    <!-- 3-peak royal crown: tall center peak, 2 flared side peaks -->
+    <path d="M -30,-4 L -23,-24 L -9,-12 L 0,-28 L 9,-12 L 23,-24 L 30,-4 Z" fill="#F59E0B" />
+    <!-- Crown base bar -->
+    <rect x="-30" y="-2" width="60" height="5" rx="1.5" fill="#D97706" />
+  </g>
+
+  <!-- P and J letters in bold black -->
+  <text x="60" y="130" fill="#0F172A" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="98" letter-spacing="-2">PJ</text>
+
+  <!-- Letter M filled with Dutch Flag horizontal stripes (Red, White, Blue) -->
+  <!-- Top Red Stripe -->
+  <rect x="185" y="38" width="96" height="32" fill="#C8102E" clip-path="url(#pjmak-m-clip)" />
+  <!-- Middle White Stripe -->
+  <rect x="185" y="70" width="96" height="30" fill="#FFFFFF" clip-path="url(#pjmak-m-clip)" />
+  <!-- Bottom Cobalt/Navy Blue Stripe -->
+  <rect x="185" y="100" width="96" height="32" fill="#21468B" clip-path="url(#pjmak-m-clip)" />
+
+  <!-- Crisp black outline for Letter M so white stripe is clearly defined on white paper -->
+  <polygon points="190,130 190,40 214,40 233,88 252,40 276,40 276,130 256,130 256,76 242,112 224,112 210,76 210,130" fill="none" stroke="#0F172A" stroke-width="1.6" stroke-linejoin="round" />
+
+  <!-- A and K letters in bold black -->
+  <text x="288" y="130" fill="#0F172A" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="98" letter-spacing="-2">AK</text>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 540" width="100%" height="100%">
+  <g fill="none" stroke="#111827" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Dynamic Underline Flourish: Confident bold baseline stroke -->
+    <path d="M 25 490 Q 280 410 520 330 T 895 190" stroke-width="9" />
+    
+    <!-- Capital 'K' Main Stem: Fluid descending curve -->
+    <path d="M 160 30 C 145 75 135 155 128 235 C 122 315 118 385 115 425" stroke-width="16" />
+    
+    <!-- Capital 'K' Upper Branch & Loop -->
+    <path d="M 132 235 C 165 170 215 105 260 78 C 275 70 282 78 276 98 C 262 135 225 195 195 240 C 182 258 190 268 210 275 C 240 285 272 315 290 350 C 298 368 290 380 270 380 C 248 380 226 352 208 322 C 192 298 180 285 165 285" stroke-width="13.5" />
+    
+    <!-- Lowercase 'a' -->
+    <path d="M 255 282 C 275 238 312 215 338 218 C 360 222 368 245 362 272 C 354 312 324 345 294 345 C 268 345 255 325 258 295 C 264 255 292 225 330 220 M 342 220 L 336 295 C 334 318 342 334 360 334 C 375 334 390 318 400 300" stroke-width="13" />
+    
+    <!-- Lowercase 's' -->
+    <path d="M 400 300 C 420 268 444 225 458 198 C 465 185 460 178 452 182 C 438 192 428 212 424 235 C 420 265 425 292 444 312 C 462 328 488 322 505 302" stroke-width="12.5" />
+    
+    <!-- First 'h' Tall Ascender Loop and Shoulder -->
+    <path d="M 505 302 C 520 278 542 190 565 105 C 576 60 588 25 595 22 C 602 20 608 30 602 58 C 590 112 572 215 558 298 C 554 322 558 332 568 332 C 582 332 595 308 608 275 C 622 235 640 212 662 212 C 680 212 688 226 684 255 C 676 292 680 320 698 320" stroke-width="13" />
+    
+    <!-- Lowercase 'e' Loop -->
+    <path d="M 698 320 C 716 320 732 298 744 268 C 754 238 748 222 732 225 C 716 230 708 255 712 285 C 715 312 728 332 750 332 C 766 332 780 315 790 295" stroke-width="12" />
+    
+    <!-- Second 'h' Tall Ascender Loop and Shoulder -->
+    <path d="M 790 295 C 802 270 820 188 838 105 C 848 60 858 25 864 22 C 870 20 876 28 870 58 C 860 112 844 215 832 298 C 828 322 832 332 842 332 C 856 332 868 308 880 275 C 892 235 910 212 928 212 C 944 212 950 228 945 258 C 938 292 942 320 958 320" stroke-width="13" />
+    
+    <!-- Lowercase 'i' with rightward exit flick -->
+    <path d="M 958 320 C 974 320 985 292 996 260 C 1004 232 1010 218 1018 218 C 1026 218 1022 235 1015 268 C 1008 296 1014 318 1028 318 C 1040 318 1055 295 1064 275" stroke-width="12" />
+    
+    <!-- Dot of 'i' (Tittle) -->
+    <circle cx="1016" cy="75" r="11" fill="#111827" stroke="none" />
+  </g>
+</svg>

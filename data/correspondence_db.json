@@ -1,0 +1,771 @@
+{
+  "users": [
+    {
+      "id": "usr-admin-1",
+      "name": "Ali Kashefi",
+      "email": "mamadalikashefi@gmail.com",
+      "username": "ali.kashefi",
+      "password": "Pjmak2026!",
+      "role": "admin",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "title": "Managing Director & Administrator",
+      "active": true,
+      "createdAt": "2026-09-10T00:00:00.000Z"
+    }
+  ],
+  "departments": [
+    {
+      "id": "dept-1",
+      "name": "Executive Leadership",
+      "code": "EX",
+      "headUserId": "usr-admin-1"
+    },
+    {
+      "id": "dept-2",
+      "name": "Engineering & Technical Services",
+      "code": "ENG"
+    },
+    {
+      "id": "dept-3",
+      "name": "Project Operations",
+      "code": "OPS"
+    },
+    {
+      "id": "dept-4",
+      "name": "Document Control & Registry",
+      "code": "REG"
+    },
+    {
+      "id": "dept-5",
+      "name": "Commercial & Legal",
+      "code": "COM"
+    }
+  ],
+  "contacts": [],
+  "correspondence": [],
+  "tasks": [],
+  "auditLogs": [
+    {
+      "id": "aud-init-1",
+      "action": "SYSTEM_INITIALIZED",
+      "newValue": "Clean PJMAK correspondence database initialized for production use",
+      "performedByUserId": "usr-admin-1",
+      "performedByUserName": "Ali Kashefi",
+      "timestamp": "2026-09-13T07:41:43.700Z",
+      "reason": "Fresh production start with zero correspondence data"
+    }
+  ],
+  "archiveFolders": [
+    {
+      "id": "fld-contracts",
+      "name": "Contracts & Agreements",
+      "description": "Official contracts, MOUs, variations, and binding agreements",
+      "color": "blue",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "isGlobal": true,
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "correspondenceIds": []
+    },
+    {
+      "id": "fld-permits",
+      "name": "Permits & Regulatory Clearances",
+      "description": "Government approvals, municipal licenses, and authority clearances",
+      "color": "emerald",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "isGlobal": true,
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "correspondenceIds": []
+    },
+    {
+      "id": "fld-claims",
+      "name": "Claims, Notices & Disputes",
+      "description": "Formal notices of claim, time extension requests, and commercial letters",
+      "color": "amber",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "isGlobal": true,
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "correspondenceIds": []
+    },
+    {
+      "id": "fld-financial",
+      "name": "Financial & Invoices",
+      "description": "Payment certificates, invoices, bank guarantees, and tax filings",
+      "color": "purple",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "isGlobal": true,
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "correspondenceIds": []
+    },
+    {
+      "id": "fld-technical",
+      "name": "Technical Submittals & RFI",
+      "description": "Engineering transmittals, shop drawings, RFIs, and technical memos",
+      "color": "indigo",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "isGlobal": true,
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "correspondenceIds": []
+    }
+  ],
+  "technicalDocuments": [
+    {
+      "id": "doc-tech-1",
+      "documentNumber": "PRJ01-PJMAK-TEC-PRP-001",
+      "title": "Technical Proposal: Sour Water Stripping & Amine Recovery Unit EPC",
+      "description": "Comprehensive engineering proposal for sulfur removal, sour water treatment, process simulation and equipment sizing.",
+      "projectCode": "PRJ-2026-01",
+      "projectName": "Bandar Abbas Petrochemical Modernization",
+      "clientCompany": "National Petrochemical Co.",
+      "clientContactPerson": "Eng. Reza Mohammadi",
+      "clientEmail": "r.mohammadi@npc-iran.ir",
+      "discipline": "TEC",
+      "documentType": "PRP",
+      "originator": "PJMAK",
+      "sequenceNumber": 1,
+      "currentRevision": "Rev A",
+      "revisionDate": "2026-09-08",
+      "reasonForIssue": "Tender / Technical Bid Submission",
+      "reviewStatus": "under_review",
+      "milestoneStage": "tender_bidding",
+      "commercialValue": 580000,
+      "currency": "USD",
+      "costCode": "CC-ENG-2026-01",
+      "revenueCode": "REV-BANDAR-001",
+      "linkedCorrespondenceIds": [],
+      "linkedCorrespondenceNumbers": [],
+      "revisions": [
+        {
+          "id": "rev-1a",
+          "revision": "Rev A",
+          "issueDate": "2026-09-08",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "Tender / Technical Bid Submission",
+          "reviewStatus": "under_review",
+          "fileName": "PJMAK_Tech_Proposal_SWS_Unit_RevA.pdf",
+          "fileSize": 4820000,
+          "notes": "Incorporates process flow diagrams and equipment performance specifications.",
+          "createdAt": "2026-09-08T10:00:00.000Z"
+        }
+      ],
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "createdAt": "2026-09-08T09:30:00.000Z",
+      "updatedAt": "2026-09-08T10:00:00.000Z"
+    },
+    {
+      "id": "doc-tech-2",
+      "documentNumber": "PRJ01-PJMAK-COM-BOQ-001",
+      "title": "Commercial Proposal & Detailed Bill of Quantities (BOQ)",
+      "description": "Lump-sum price breakdown, payment schedule, foreign procurement cash flow, and warranty terms.",
+      "projectCode": "PRJ-2026-01",
+      "projectName": "Bandar Abbas Petrochemical Modernization",
+      "clientCompany": "National Petrochemical Co.",
+      "clientContactPerson": "Mr. Hamid Rezaei",
+      "clientEmail": "commercial@npc-iran.ir",
+      "discipline": "COM",
+      "documentType": "BOQ",
+      "originator": "PJMAK",
+      "sequenceNumber": 1,
+      "currentRevision": "Rev 0",
+      "revisionDate": "2026-09-09",
+      "reasonForIssue": "Commercial Offer Submission",
+      "reviewStatus": "code_2_approved_with_comments",
+      "milestoneStage": "award_contracting",
+      "commercialValue": 580000,
+      "currency": "USD",
+      "costCode": "CC-COM-PRP-01",
+      "revenueCode": "REV-BANDAR-001",
+      "proformaInvoiceNumber": "PI-2026-101",
+      "contractNumber": "CTR-NPC-2026-88",
+      "linkedCorrespondenceIds": [],
+      "linkedCorrespondenceNumbers": [
+        "OUT-2026-1"
+      ],
+      "revisions": [
+        {
+          "id": "rev-2-0",
+          "revision": "Rev 0",
+          "issueDate": "2026-09-09",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "Commercial Offer Submission",
+          "reviewStatus": "code_2_approved_with_comments",
+          "transmittalLetterNumber": "OUT-2026-1",
+          "fileName": "PJMAK_Commercial_BOQ_Rev0.xlsx",
+          "fileSize": 1250000,
+          "notes": "Client requested comment on milestone 3 payment release.",
+          "createdAt": "2026-09-09T11:00:00.000Z"
+        }
+      ],
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "createdAt": "2026-09-09T10:00:00.000Z",
+      "updatedAt": "2026-09-09T11:00:00.000Z"
+    },
+    {
+      "id": "doc-tech-3",
+      "documentNumber": "PRJ01-PJMAK-MEC-SPC-001",
+      "title": "Technical Specification: High-Pressure Multistage Boiler Feed Pump",
+      "description": "API 610 compliant pump design datasheets, material selection, testing standards, and NPSH requirements.",
+      "projectCode": "PRJ-2026-01",
+      "projectName": "Bandar Abbas Petrochemical Modernization",
+      "clientCompany": "National Petrochemical Co.",
+      "clientContactPerson": "Eng. Reza Mohammadi",
+      "discipline": "MEC",
+      "documentType": "SPC",
+      "originator": "PJMAK",
+      "sequenceNumber": 1,
+      "supplierName": "Sulzer Pumps AG / Flowserve Industrial",
+      "currentRevision": "Rev 1",
+      "revisionDate": "2026-09-10",
+      "reasonForIssue": "For Construction & Procurement",
+      "reviewStatus": "code_1_approved",
+      "milestoneStage": "procurement_fabrication",
+      "commercialValue": 145000,
+      "currency": "USD",
+      "costCode": "CC-EQP-MEC-12",
+      "revenueCode": "REV-BANDAR-001",
+      "linkedCorrespondenceIds": [],
+      "linkedCorrespondenceNumbers": [],
+      "revisions": [
+        {
+          "id": "rev-3-0",
+          "revision": "Rev 0",
+          "issueDate": "2026-08-25",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "For Review",
+          "reviewStatus": "code_2_approved_with_comments",
+          "createdAt": "2026-08-25T10:00:00.000Z"
+        },
+        {
+          "id": "rev-3-1",
+          "revision": "Rev 1",
+          "issueDate": "2026-09-10",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "For Construction & Procurement",
+          "reviewStatus": "code_1_approved",
+          "notes": "Final manufacturer curves incorporated. Code 1 Approved by client consultant.",
+          "createdAt": "2026-09-10T14:00:00.000Z"
+        }
+      ],
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "createdAt": "2026-08-25T09:00:00.000Z",
+      "updatedAt": "2026-09-10T14:00:00.000Z"
+    },
+    {
+      "id": "doc-tech-4",
+      "documentNumber": "PRJ02-PJMAK-ELE-DWG-001",
+      "title": "Single Line Diagram (SLD): 20kV / 400V Substation Distribution",
+      "description": "Main electrical distribution architecture, transformer feeder protection, and generator synchronization bus.",
+      "projectCode": "PRJ-2026-02",
+      "projectName": "Tabriz Petrochemical Complex Power Revamp",
+      "clientCompany": "Tabriz Petrochemical Corp.",
+      "clientContactPerson": "Dr. Ahmad Ghasemi",
+      "discipline": "ELE",
+      "documentType": "DWG",
+      "originator": "PJMAK",
+      "sequenceNumber": 1,
+      "currentRevision": "Rev B",
+      "revisionDate": "2026-09-07",
+      "reasonForIssue": "For Client Approval",
+      "reviewStatus": "code_3_revise_resubmit",
+      "milestoneStage": "detailed_engineering",
+      "commercialValue": 92000,
+      "currency": "USD",
+      "costCode": "CC-ELE-DES-04",
+      "linkedCorrespondenceIds": [],
+      "linkedCorrespondenceNumbers": [],
+      "revisions": [
+        {
+          "id": "rev-4-b",
+          "revision": "Rev B",
+          "issueDate": "2026-09-07",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "For Client Approval",
+          "reviewStatus": "code_3_revise_resubmit",
+          "notes": "Client requested revised short circuit calculations on Bus 2.",
+          "createdAt": "2026-09-07T12:00:00.000Z"
+        }
+      ],
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "createdAt": "2026-09-07T11:00:00.000Z",
+      "updatedAt": "2026-09-07T12:00:00.000Z"
+    },
+    {
+      "id": "doc-tech-5",
+      "documentNumber": "PRJ01-PJMAK-CNT-CTR-001",
+      "title": "Specialized Subcontract Agreement: Piping Spool Pre-Fabrication & Hydrotesting",
+      "description": "Contract with qualified fabrication yard for 450 tons of alloy and carbon steel piping spools.",
+      "projectCode": "PRJ-2026-01",
+      "projectName": "Bandar Abbas Petrochemical Modernization",
+      "clientCompany": "National Petrochemical Co.",
+      "supplierName": "Farayand Sazan Industrial Fabricators",
+      "discipline": "CNT",
+      "documentType": "CTR",
+      "originator": "PJMAK",
+      "sequenceNumber": 1,
+      "currentRevision": "Rev 0",
+      "revisionDate": "2026-09-10",
+      "reasonForIssue": "For Subcontract Execution",
+      "reviewStatus": "code_1_approved",
+      "milestoneStage": "award_contracting",
+      "commercialValue": 88000,
+      "currency": "USD",
+      "costCode": "CC-SUB-FAB-01",
+      "contractNumber": "SUB-PJMAK-2026-014",
+      "linkedCorrespondenceIds": [],
+      "linkedCorrespondenceNumbers": [],
+      "revisions": [
+        {
+          "id": "rev-5-0",
+          "revision": "Rev 0",
+          "issueDate": "2026-09-10",
+          "issuedByUserId": "usr-admin-1",
+          "issuedByUserName": "Ali Kashefi",
+          "reasonForIssue": "For Subcontract Execution",
+          "reviewStatus": "code_1_approved",
+          "createdAt": "2026-09-10T16:00:00.000Z"
+        }
+      ],
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "departmentId": "dept-1",
+      "departmentName": "Executive Leadership",
+      "createdAt": "2026-09-10T15:00:00.000Z",
+      "updatedAt": "2026-09-10T16:00:00.000Z"
+    }
+  ],
+  "emailTemplates": [
+    {
+      "id": "tpl-std-transmittal",
+      "name": "Standard Official Transmittal",
+      "description": "Formal letter dispatch with explicit attachment notice and acknowledgement request.",
+      "category": "transmittal",
+      "defaultSalutation": "Dear Mr.",
+      "subjectFormat": "{subject} - {letterNumber}",
+      "bodyFormat": "Dear {salutation} {recipientName},\n\nKindly please find the attached file regarding \"{subject}\" (Official Letter Ref: {letterNumber}).\n\nPlease let us know if you require any additional information or have any comments.\n\nKindly acknowledge receipt of this email.\n\nYours sincerely,\n{signatoryName}\n{signatoryPosition}\n{companyName}",
+      "isSystem": true
+    },
+    {
+      "id": "tpl-tech-proposal",
+      "name": "Technical & Commercial Proposal Transmittal",
+      "description": "High-level transmittal for submitting engineering proposals, BOQs, and commercial terms.",
+      "category": "proposal",
+      "defaultSalutation": "Dear Mr.",
+      "subjectFormat": "{subject} - {letterNumber}",
+      "bodyFormat": "Dear {salutation} {recipientName},\n\nKindly please find the attached file containing our formal Technical & Commercial Proposal regarding \"{subject}\" (Letter Reference: {letterNumber}).\n\nThis submission details our comprehensive scope of work, technical methodology, project schedule, and commercial breakdown. We remain confident that our proposal meets the highest engineering standards and delivers optimal value for your project.\n\nWe look forward to scheduling a clarification meeting at your earliest convenience to review the submission together.\n\nYours sincerely,\n{signatoryName}\n{signatoryPosition}\n{companyName}",
+      "isSystem": true
+    },
+    {
+      "id": "tpl-commercial-proforma",
+      "name": "Proforma Invoice & Milestone Payment",
+      "description": "Official dispatch of proforma invoices, contract billing milestones, and payment terms.",
+      "category": "commercial",
+      "defaultSalutation": "Dear Ms.",
+      "subjectFormat": "{subject} - {letterNumber}",
+      "bodyFormat": "Dear {salutation} {recipientName},\n\nKindly please find the attached file regarding \"{subject}\" (Official Ref: {letterNumber}), including the relevant Proforma Invoice and commercial documentation.\n\nPlease arrange for the necessary commercial clearance and advance payment issuance according to the agreed milestone schedule.\n\nShould your finance or procurement team require any clarifications, please feel free to reach out.\n\nYours sincerely,\n{signatoryName}\n{signatoryPosition}\n{companyName}",
+      "isSystem": true
+    },
+    {
+      "id": "tpl-urgent-review",
+      "name": "Urgent Engineering Review & Approval",
+      "description": "Expedited request for client approval code or critical-path technical response.",
+      "category": "urgent",
+      "defaultSalutation": "Dear Eng.",
+      "subjectFormat": "{subject} - {letterNumber} [URGENT REVIEW]",
+      "bodyFormat": "Dear {salutation} {recipientName},\n\nKindly please find the attached file regarding \"{subject}\" (Letter Ref: {letterNumber}).\n\nIn order to adhere to the project timeline and milestone delivery dates, your expedited review and formal feedback / Code Approval (Code 1 / Code 2) is kindly requested by the required date.\n\nThank you for your prompt attention to this matter.\n\nYours sincerely,\n{signatoryName}\n{signatoryPosition}\n{companyName}",
+      "isSystem": true
+    },
+    {
+      "id": "tpl-formal-clarification",
+      "name": "Formal Clarification & Response",
+      "description": "Official reply to technical inquiries, site queries, or commercial clarifications.",
+      "category": "general",
+      "defaultSalutation": "Dear Sir / Madam",
+      "subjectFormat": "{subject} - {letterNumber}",
+      "bodyFormat": "Dear {salutation},\n\nKindly please find the attached file regarding \"{subject}\" (Reference: {letterNumber}) containing our official technical response and clarifications.\n\nWe remain at your disposal for any further discussions.\n\nYours sincerely,\n{signatoryName}\n{signatoryPosition}\n{companyName}",
+      "isSystem": true
+    }
+  ],
+  "numberSequences": {
+    "incoming": {
+      "prefix": "IN",
+      "year": 2026,
+      "digits": 0,
+      "useLeadingZeros": false,
+      "separator": "-",
+      "currentSeq": 0,
+      "resetAnnually": true,
+      "departmentCodePrefix": false
+    },
+    "outgoing": {
+      "prefix": "OUT",
+      "year": 2026,
+      "digits": 0,
+      "useLeadingZeros": false,
+      "separator": "-",
+      "currentSeq": 0,
+      "resetAnnually": true,
+      "departmentCodePrefix": false
+    },
+    "internal": {
+      "prefix": "IC",
+      "year": 2026,
+      "digits": 0,
+      "useLeadingZeros": false,
+      "separator": "-",
+      "currentSeq": 0,
+      "resetAnnually": true,
+      "departmentCodePrefix": false
+    },
+    "voidedNumbers": []
+  },
+  "companySettings": {
+    "companyName": "PJMAK",
+    "registrationNumber": "KvK 91081289",
+    "address": "Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands",
+    "phone": "(+31) 610 26 95 54",
+    "email": "mamadalikashefi@gmail.com",
+    "website": "https://www.pjmak.nl",
+    "logoUrl": "/assets/pjmak_logo.svg",
+    "footerText": "PJMAK (Project Management Key) • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: (+31) 610 26 95 54",
+    "defaultTemplateId": "tmpl-1",
+    "signature": {
+      "signatoryName": "Ali Kashefi",
+      "position": "Founder & Managing Director",
+      "signatureImageUrl": "/assets/signature_kashefi.svg",
+      "department": "Executive Leadership",
+      "enabled": true,
+      "presetId": "sign_2_black"
+    },
+    "reminderRules": {
+      "daysBeforeDue": [
+        7,
+        3,
+        1
+      ],
+      "notifyOnDueDate": true,
+      "notifyWhenOverdue": true
+    },
+    "emailSettings": {
+      "provider": "gmail",
+      "senderEmail": "mamadalikashefi@gmail.com",
+      "connected": false
+    }
+  },
+  "templates": [
+    {
+      "id": "tmpl-1",
+      "name": "Executive Corporate Standard",
+      "description": "Official corporate correspondence with crest header, right-aligned reference metadata, and dual-party signature block.",
+      "headerLayout": "split",
+      "fontFamily": "font-serif",
+      "primaryColor": "#0b1e36",
+      "defaultGreeting": "Dear Sir / Madam,",
+      "defaultClosing": "Yours faithfully,"
+    },
+    {
+      "id": "tmpl-2",
+      "name": "Technical & Engineering Transmittal",
+      "description": "Structured layout with prominent drawing/submittal metadata table and revision indices.",
+      "headerLayout": "left_aligned",
+      "fontFamily": "font-sans",
+      "primaryColor": "#0369a1",
+      "defaultGreeting": "Attention: Engineering Lead,",
+      "defaultClosing": "Respectfully submitted,"
+    },
+    {
+      "id": "tmpl-3",
+      "name": "Strict Confidential Legal",
+      "description": "High-security legal notice with bordered watermark banner and compliance disclaimer.",
+      "headerLayout": "centered",
+      "fontFamily": "font-serif",
+      "primaryColor": "#991b1b",
+      "defaultGreeting": "Dear Colleague,",
+      "defaultClosing": "Sincerely,"
+    }
+  ],
+  "externalUsers": [
+    {
+      "id": "ext-usr-1",
+      "name": "Eng. Reza Mohammadi",
+      "company": "National Petrochemical Co. (NPC)",
+      "email": "r.mohammadi@npc-iran.ir",
+      "username": "reza.npc",
+      "password": "Review2026!",
+      "status": "active",
+      "createdAt": "2026-09-12T08:00:00.000Z",
+      "lastLoginAt": "2026-09-14T17:55:22.983Z"
+    },
+    {
+      "id": "ext-usr-2",
+      "name": "Dr. Sarah Al-Mansouri",
+      "company": "Pars Oil & Gas Company (POGC)",
+      "email": "s.mansouri@pogc.ir",
+      "username": "sarah.pogc",
+      "password": "Review2026!",
+      "status": "active",
+      "createdAt": "2026-09-13T10:00:00.000Z"
+    }
+  ],
+  "documentShares": [
+    {
+      "id": "share-sample-1",
+      "shareToken": "token-npc-mec-dwg-4921",
+      "documentId": "doc-tech-3",
+      "documentNumber": "PRJ01-PJMAK-MEC-SPC-001",
+      "documentTitle": "Technical Specification: High-Pressure Multistage Boiler Feed Pump",
+      "selectedRevision": "Rev 1",
+      "externalUserId": "ext-usr-1",
+      "recipientName": "Eng. Reza Mohammadi",
+      "recipientCompany": "National Petrochemical Co. (NPC)",
+      "recipientEmail": "r.mohammadi@npc-iran.ir",
+      "recipientUsername": "reza.npc",
+      "schedule": {
+        "startDate": "2026-09-12",
+        "startTime": "08:00",
+        "expiryDate": "2026-09-28",
+        "expiryTime": "17:00",
+        "workingDays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "dailyStartTime": "08:30",
+        "dailyEndTime": "17:30",
+        "timeZone": "Europe/Amsterdam",
+        "publicHolidays": [
+          "2026-09-25"
+        ]
+      },
+      "permissions": {
+        "canView": true,
+        "canComment": true,
+        "canDownload": false,
+        "canPrint": false,
+        "canCopy": false,
+        "canRequestExtension": true,
+        "allowLaterRevisions": true
+      },
+      "status": "active",
+      "createdAt": "2026-09-12T08:30:00.000Z",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "lastAccessAt": "2026-09-14T09:15:00.000Z",
+      "watermarkConfig": {
+        "enabled": true,
+        "customText": "CONFIDENTIAL • FOR OFFICIAL REVIEW ONLY"
+      },
+      "extensionRequests": []
+    },
+    {
+      "id": "share-sample-2",
+      "shareToken": "token-pogc-proc-spc-8824",
+      "documentId": "doc-tech-4",
+      "documentNumber": "PRJ02-PJMAK-ELE-DWG-001",
+      "documentTitle": "Single Line Diagram (SLD): 20kV / 400V Substation Distribution",
+      "selectedRevision": "Rev B",
+      "externalUserId": "ext-usr-2",
+      "recipientName": "Dr. Sarah Al-Mansouri",
+      "recipientCompany": "Pars Oil & Gas Company (POGC)",
+      "recipientEmail": "s.mansouri@pogc.ir",
+      "recipientUsername": "sarah.pogc",
+      "schedule": {
+        "startDate": "2026-09-01",
+        "startTime": "00:00",
+        "expiryDate": "2026-10-30",
+        "expiryTime": "23:59",
+        "workingDays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "dailyStartTime": "00:00",
+        "dailyEndTime": "23:59",
+        "timeZone": "Europe/Amsterdam",
+        "publicHolidays": []
+      },
+      "permissions": {
+        "canView": true,
+        "canComment": true,
+        "canDownload": false,
+        "canPrint": false,
+        "canCopy": false,
+        "canRequestExtension": true,
+        "allowLaterRevisions": true
+      },
+      "status": "active",
+      "createdAt": "2026-09-13T10:00:00.000Z",
+      "createdByUserId": "usr-admin-1",
+      "createdByUserName": "Ali Kashefi",
+      "lastAccessAt": "2026-09-14T17:56:08.583Z",
+      "watermarkConfig": {
+        "enabled": true,
+        "customText": "CONTROLLED REVIEW COPY • POGC AUDIT"
+      },
+      "extensionRequests": []
+    }
+  ],
+  "documentComments": [
+    {
+      "id": "cmt-sample-1",
+      "shareId": "share-sample-1",
+      "documentId": "doc-tech-3",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev 1",
+      "pageNumber": 2,
+      "locationAnnotation": "Section B-B, Nozzle N3 Flange Rating",
+      "commentText": "Please verify if the flange rating for Nozzle N3 meets ASME B16.5 Class 300 requirement for high-temperature sour water service.",
+      "authorId": "ext-usr-1",
+      "authorName": "Eng. Reza Mohammadi",
+      "authorEmail": "r.mohammadi@npc-iran.ir",
+      "authorCompany": "National Petrochemical Co. (NPC)",
+      "authorRole": "external",
+      "createdAt": "2026-09-14T09:30:00.000Z",
+      "status": "open",
+      "replies": []
+    }
+  ],
+  "externalAuditLogs": [
+    {
+      "id": "ext-log-1789408568583-azh5",
+      "shareId": "share-sample-2",
+      "documentId": "doc-tech-4",
+      "documentNumber": "PRJ02-PJMAK-ELE-DWG-001",
+      "revision": "Rev B",
+      "externalUserId": "ext-usr-2",
+      "externalUserName": "Dr. Sarah Al-Mansouri",
+      "externalUserCompany": "Pars Oil & Gas Company (POGC)",
+      "actorType": "external",
+      "eventType": "document_viewed",
+      "timestamp": "2026-09-14T17:56:08.583Z",
+      "result": "allowed",
+      "details": "Controlled Document Viewer rendered for PRJ02-PJMAK-ELE-DWG-001 (Rev B) with dynamic watermark"
+    },
+    {
+      "id": "ext-log-1789408525455-ngtp",
+      "shareId": "share-sample-1",
+      "documentId": "doc-mec-001",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev A",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "document_opened",
+      "timestamp": "2026-09-14T17:55:25.455Z",
+      "result": "denied",
+      "details": "Access rejected: Outside permitted daily working hours (08:30–17:30 Europe/Amsterdam). Current time is 19:55."
+    },
+    {
+      "id": "ext-log-1789408522983-gbuh",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "login",
+      "timestamp": "2026-09-14T17:55:22.984Z",
+      "result": "allowed",
+      "details": "External user Eng. Reza Mohammadi (National Petrochemical Co. (NPC)) logged in successfully"
+    },
+    {
+      "id": "ext-log-1789408519076-oo3x",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "failed_login",
+      "timestamp": "2026-09-14T17:55:19.076Z",
+      "result": "denied",
+      "details": "Failed external login attempt for reza.npc (incorrect password)"
+    },
+    {
+      "id": "ext-log-1",
+      "shareId": "share-sample-1",
+      "documentId": "doc-mec-001",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev A",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "performedByUserId": "usr-admin-1",
+      "performedByUserName": "Ali Kashefi",
+      "actorType": "internal",
+      "eventType": "invitation_created",
+      "timestamp": "2026-09-12T08:30:00.000Z",
+      "result": "success",
+      "details": "Shared PRJ-PJMAK-MEC-DWG-0001 (Rev A) with Eng. Reza Mohammadi under controlled schedule Mon-Fri 08:30-17:30"
+    },
+    {
+      "id": "ext-log-2",
+      "shareId": "share-sample-1",
+      "documentId": "doc-mec-001",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev A",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "login",
+      "timestamp": "2026-09-14T09:15:00.000Z",
+      "result": "allowed",
+      "details": "Authenticated successfully into PJMAK Secure Document Portal"
+    },
+    {
+      "id": "ext-log-3",
+      "shareId": "share-sample-1",
+      "documentId": "doc-mec-001",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev A",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "document_opened",
+      "timestamp": "2026-09-14T09:16:00.000Z",
+      "result": "allowed",
+      "details": "Opened Controlled Document Viewer for Rev A with dynamic watermark overlay"
+    },
+    {
+      "id": "ext-log-4",
+      "shareId": "share-sample-1",
+      "documentId": "doc-mec-001",
+      "documentNumber": "PRJ-PJMAK-MEC-DWG-0001",
+      "revision": "Rev A",
+      "externalUserId": "ext-usr-1",
+      "externalUserName": "Eng. Reza Mohammadi",
+      "externalUserCompany": "National Petrochemical Co. (NPC)",
+      "actorType": "external",
+      "eventType": "comment_created",
+      "timestamp": "2026-09-14T09:30:00.000Z",
+      "result": "success",
+      "details": "Added review comment on Section B-B, Nozzle N3 Flange Rating (Page 2)"
+    }
+  ]
+}
