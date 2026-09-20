@@ -8,6 +8,7 @@ import {
   wipeDatabaseToClean,
   deleteCorrespondenceFromDb,
   recalculateSequence,
+  clearAllTechnicalDocuments,
 } from './db';
 import {
   Correspondence,
@@ -499,7 +500,11 @@ apiRouter.post('/correspondence', (req: Request, res: Response) => {
       body.recipientOrg ||
       (isInternal ? db.companySettings.companyName : ''),
     recipientPerson: body.recipientPerson || '',
+    recipientPosition: body.recipientPosition || '',
     recipientEmail: body.recipientEmail || '',
+    showCcOnLetter: body.showCcOnLetter !== undefined ? Boolean(body.showCcOnLetter) : true,
+    internalCcUserIds: Array.isArray(body.internalCcUserIds) ? body.internalCcUserIds : [],
+    internalCcUserNames: Array.isArray(body.internalCcUserNames) ? body.internalCcUserNames : [],
     originDepartmentId:
       body.originDepartmentId ||
       (isInternal ? currentUser.departmentId : undefined),
@@ -2726,6 +2731,11 @@ apiRouter.get('/dashboard/stats', (req: Request, res: Response) => {
 // -------------------------------------------------------------
 // TECHNICAL & COMMERCIAL DOCUMENTS (ACONEX EDMS)
 // -------------------------------------------------------------
+apiRouter.post('/documents/clear-all', (req: Request, res: Response) => {
+  clearAllTechnicalDocuments();
+  res.json({ success: true, message: 'All technical documents cleared from EDMS.' });
+});
+
 apiRouter.get('/documents', (req: Request, res: Response) => {
   const db = getDb();
   let docs = db.technicalDocuments || [];
@@ -2850,6 +2860,18 @@ apiRouter.post('/documents', (req: Request, res: Response) => {
     departmentName: currentUser.departmentName,
     confidentiality: data.confidentiality || 'internal',
     tags: data.tags || [],
+    documentMode: data.documentMode || 'generated',
+    documentScope: data.documentScope || '',
+    clientDocumentNumber: data.clientDocumentNumber || '',
+    clientRevisionCode: data.clientRevisionCode || '',
+    contractorDocumentNumber: data.contractorDocumentNumber || docNumber,
+    contractorRevisionNo: data.contractorRevisionNo || '0',
+    poNumber: data.poNumber || '',
+    rdsPpCode: data.rdsPpCode || '',
+    fileFormat: data.fileFormat || (data.documentType === 'DWG' ? 'dwg' : 'docx'),
+    bodyHtml: data.bodyHtml || '',
+    holdPoints: data.holdPoints || [],
+    revisionHistoryItems: data.revisionHistoryItems || [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

@@ -576,6 +576,8 @@ export default function App() {
                 documents={technicalDocuments}
                 correspondence={correspondence}
                 currentUser={currentUser}
+                contacts={contacts}
+                onCreateContact={handleCreateContact}
                 onOpenCorrespondence={(corrNumber) => {
                   const found = correspondence.find((c) => c.correspondenceNumber === corrNumber);
                   if (found) {
@@ -649,39 +651,43 @@ export default function App() {
           </div>
         </>
       ) : (
-        <>
-          {/* Header */}
-          <Header
+        <div className="flex-1 flex h-full overflow-hidden">
+          {/* Left Sidebar from very top to bottom */}
+          <Sidebar
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            incomingCount={incomingCount}
+            outgoingCount={outgoingCount}
+            internalCount={internalCount}
+            pendingTasksCount={myPendingTasksCount}
+            draftedCount={draftedCount}
             currentUser={currentUser}
             users={users}
             onSwitchUser={handleSwitchUser}
-            onOpenGlobalSearch={() => setSearchModalOpen(true)}
-            tasks={tasks}
-            onSelectTask={(t) => {
-              const found = correspondence.find(
-                (c) => c.id === t.correspondenceId
-              );
-              if (found) setSelectedCorrespondence(found);
-            }}
             onLogout={handleLogout}
             onOpenAdminUsers={() => setActiveTab('admin')}
-            onOpenMobileMenu={() => setMobileDrawerOpen(true)}
-            isRegisterActive={isRegisterTab}
-            onExpandToFullScreen={() => setRegisterLayoutMode('full_page')}
           />
 
-          {/* Main Container */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* Sidebar */}
-            <Sidebar
-              activeTab={activeTab}
-              onSelectTab={setActiveTab}
-              incomingCount={incomingCount}
-              outgoingCount={outgoingCount}
-              internalCount={internalCount}
-              pendingTasksCount={myPendingTasksCount}
-              draftedCount={draftedCount}
+          {/* Right Column: Header on top, followed by Main Content */}
+          <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+            {/* Header */}
+            <Header
               currentUser={currentUser}
+              users={users}
+              onSwitchUser={handleSwitchUser}
+              onOpenGlobalSearch={() => setSearchModalOpen(true)}
+              tasks={tasks}
+              onSelectTask={(t) => {
+                const found = correspondence.find(
+                  (c) => c.id === t.correspondenceId
+                );
+                if (found) setSelectedCorrespondence(found);
+              }}
+              onLogout={handleLogout}
+              onOpenAdminUsers={() => setActiveTab('admin')}
+              onOpenMobileMenu={() => setMobileDrawerOpen(true)}
+              isRegisterActive={isRegisterTab}
+              onExpandToFullScreen={() => setRegisterLayoutMode('full_page')}
             />
 
             {/* Content Area */}
@@ -876,6 +882,8 @@ export default function App() {
                   documents={technicalDocuments}
                   correspondence={correspondence}
                   currentUser={currentUser}
+                  contacts={contacts}
+                  onCreateContact={handleCreateContact}
                   onOpenCorrespondence={(corrNumber) => {
                     const found = correspondence.find(
                       (c) => c.correspondenceNumber === corrNumber
@@ -960,7 +968,7 @@ export default function App() {
               )}
             </main>
           </div>
-        </>
+        </div>
       )}
 
       {/* MODAL 1: LETTER EDITOR MODAL */}
@@ -970,6 +978,7 @@ export default function App() {
           allCorrespondence={correspondence}
           contacts={contacts}
           departments={departments}
+          users={users}
           settings={settings}
           templates={templates}
           replyToItem={replyToItem}
@@ -1034,8 +1043,18 @@ export default function App() {
       {searchModalOpen && (
         <GlobalSearchModal
           correspondence={correspondence}
+          technicalDocuments={technicalDocuments}
+          contacts={contacts}
           onClose={() => setSearchModalOpen(false)}
           onSelectCorrespondence={(item) => setSelectedCorrespondence(item)}
+          onSelectDocument={(doc) => {
+            setActiveTab('technical_docs');
+            setSearchModalOpen(false);
+          }}
+          onSelectContact={(c) => {
+            setActiveTab('contacts');
+            setSearchModalOpen(false);
+          }}
         />
       )}
 

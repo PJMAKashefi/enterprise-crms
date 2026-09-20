@@ -137,11 +137,11 @@ function getInitialData(): DatabaseSchema {
     companyName: 'PJMAK',
     registrationNumber: 'KvK 91081289',
     address: "Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands",
-    phone: '(+31) 610 26 95 54',
+    phone: '+31 610 26 95 54',
     email: 'mamadalikashefi@gmail.com',
     website: 'https://www.pjmak.nl',
     logoUrl: '/assets/pjmak_logo.svg',
-    footerText: "PJMAK (Project Management Key) • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: (+31) 610 26 95 54",
+    footerText: "PJMAK Company • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: +31 610 26 95 54",
     defaultTemplateId: 'tmpl-1',
     signature: {
       signatoryName: 'Ali Kashefi',
@@ -253,247 +253,7 @@ function getInitialData(): DatabaseSchema {
     },
   ];
 
-  const technicalDocuments: TechnicalDocument[] = [
-    {
-      id: 'doc-tech-1',
-      documentNumber: 'PRJ01-PJMAK-TEC-PRP-001',
-      title: 'Technical Proposal: Sour Water Stripping & Amine Recovery Unit EPC',
-      description: 'Comprehensive engineering proposal for sulfur removal, sour water treatment, process simulation and equipment sizing.',
-      projectCode: 'PRJ-2026-01',
-      projectName: 'Bandar Abbas Petrochemical Modernization',
-      clientCompany: 'National Petrochemical Co.',
-      clientContactPerson: 'Eng. Reza Mohammadi',
-      clientEmail: 'r.mohammadi@npc-iran.ir',
-      discipline: 'TEC',
-      documentType: 'PRP',
-      originator: 'PJMAK',
-      sequenceNumber: 1,
-      currentRevision: 'Rev A',
-      revisionDate: '2026-09-08',
-      reasonForIssue: 'Tender / Technical Bid Submission',
-      reviewStatus: 'under_review',
-      milestoneStage: 'tender_bidding',
-      commercialValue: 580000,
-      currency: 'USD',
-      costCode: 'CC-ENG-2026-01',
-      revenueCode: 'REV-BANDAR-001',
-      linkedCorrespondenceIds: [],
-      linkedCorrespondenceNumbers: ['OUT-2026-1'],
-      revisions: [
-        {
-          id: 'rev-1a',
-          revision: 'Rev A',
-          issueDate: '2026-09-08',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'Tender / Technical Bid Submission',
-          reviewStatus: 'under_review',
-          transmittalLetterNumber: 'OUT-2026-1',
-          fileName: 'PJMAK_Tech_Proposal_SWS_Unit_RevA.pdf',
-          fileSize: 4820000,
-          notes: 'Incorporates process flow diagrams and equipment performance specifications.',
-          createdAt: '2026-09-08T10:00:00.000Z',
-        },
-      ],
-      createdByUserId: 'usr-admin-1',
-      createdByUserName: 'Ali Kashefi',
-      departmentId: 'dept-1',
-      departmentName: 'Executive Leadership',
-      createdAt: '2026-09-08T09:30:00.000Z',
-      updatedAt: '2026-09-08T10:00:00.000Z',
-    },
-    {
-      id: 'doc-tech-2',
-      documentNumber: 'PRJ01-PJMAK-COM-BOQ-001',
-      title: 'Commercial Proposal & Detailed Bill of Quantities (BOQ)',
-      description: 'Lump-sum price breakdown, payment schedule, foreign procurement cash flow, and warranty terms.',
-      projectCode: 'PRJ-2026-01',
-      projectName: 'Bandar Abbas Petrochemical Modernization',
-      clientCompany: 'National Petrochemical Co.',
-      clientContactPerson: 'Mr. Hamid Rezaei',
-      clientEmail: 'commercial@npc-iran.ir',
-      discipline: 'COM',
-      documentType: 'BOQ',
-      originator: 'PJMAK',
-      sequenceNumber: 1,
-      currentRevision: 'Rev 0',
-      revisionDate: '2026-09-09',
-      reasonForIssue: 'Commercial Offer Submission',
-      reviewStatus: 'code_2_approved_with_comments',
-      milestoneStage: 'award_contracting',
-      commercialValue: 580000,
-      currency: 'USD',
-      costCode: 'CC-COM-PRP-01',
-      revenueCode: 'REV-BANDAR-001',
-      proformaInvoiceNumber: 'PI-2026-101',
-      contractNumber: 'CTR-NPC-2026-88',
-      linkedCorrespondenceIds: [],
-      linkedCorrespondenceNumbers: ['OUT-2026-1'],
-      revisions: [
-        {
-          id: 'rev-2-0',
-          revision: 'Rev 0',
-          issueDate: '2026-09-09',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'Commercial Offer Submission',
-          reviewStatus: 'code_2_approved_with_comments',
-          transmittalLetterNumber: 'OUT-2026-1',
-          fileName: 'PJMAK_Commercial_BOQ_Rev0.xlsx',
-          fileSize: 1250000,
-          notes: 'Client requested comment on milestone 3 payment release.',
-          createdAt: '2026-09-09T11:00:00.000Z',
-        },
-      ],
-      createdByUserId: 'usr-admin-1',
-      createdByUserName: 'Ali Kashefi',
-      departmentId: 'dept-1',
-      departmentName: 'Executive Leadership',
-      createdAt: '2026-09-09T10:00:00.000Z',
-      updatedAt: '2026-09-09T11:00:00.000Z',
-    },
-    {
-      id: 'doc-tech-3',
-      documentNumber: 'PRJ01-PJMAK-MEC-SPC-001',
-      title: 'Technical Specification: High-Pressure Multistage Boiler Feed Pump',
-      description: 'API 610 compliant pump design datasheets, material selection, testing standards, and NPSH requirements.',
-      projectCode: 'PRJ-2026-01',
-      projectName: 'Bandar Abbas Petrochemical Modernization',
-      clientCompany: 'National Petrochemical Co.',
-      clientContactPerson: 'Eng. Reza Mohammadi',
-      discipline: 'MEC',
-      documentType: 'SPC',
-      originator: 'PJMAK',
-      sequenceNumber: 1,
-      supplierName: 'Sulzer Pumps AG / Flowserve Industrial',
-      currentRevision: 'Rev 1',
-      revisionDate: '2026-09-10',
-      reasonForIssue: 'For Construction & Procurement',
-      reviewStatus: 'code_1_approved',
-      milestoneStage: 'procurement_fabrication',
-      commercialValue: 145000,
-      currency: 'USD',
-      costCode: 'CC-EQP-MEC-12',
-      revenueCode: 'REV-BANDAR-001',
-      linkedCorrespondenceIds: [],
-      linkedCorrespondenceNumbers: [],
-      revisions: [
-        {
-          id: 'rev-3-0',
-          revision: 'Rev 0',
-          issueDate: '2026-08-25',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'For Review',
-          reviewStatus: 'code_2_approved_with_comments',
-          createdAt: '2026-08-25T10:00:00.000Z',
-        },
-        {
-          id: 'rev-3-1',
-          revision: 'Rev 1',
-          issueDate: '2026-09-10',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'For Construction & Procurement',
-          reviewStatus: 'code_1_approved',
-          notes: 'Final manufacturer curves incorporated. Code 1 Approved by client consultant.',
-          createdAt: '2026-09-10T14:00:00.000Z',
-        },
-      ],
-      createdByUserId: 'usr-admin-1',
-      createdByUserName: 'Ali Kashefi',
-      departmentId: 'dept-1',
-      departmentName: 'Executive Leadership',
-      createdAt: '2026-08-25T09:00:00.000Z',
-      updatedAt: '2026-09-10T14:00:00.000Z',
-    },
-    {
-      id: 'doc-tech-4',
-      documentNumber: 'PRJ02-PJMAK-ELE-DWG-001',
-      title: 'Single Line Diagram (SLD): 20kV / 400V Substation Distribution',
-      description: 'Main electrical distribution architecture, transformer feeder protection, and generator synchronization bus.',
-      projectCode: 'PRJ-2026-02',
-      projectName: 'Tabriz Petrochemical Complex Power Revamp',
-      clientCompany: 'Tabriz Petrochemical Corp.',
-      clientContactPerson: 'Dr. Ahmad Ghasemi',
-      discipline: 'ELE',
-      documentType: 'DWG',
-      originator: 'PJMAK',
-      sequenceNumber: 1,
-      currentRevision: 'Rev B',
-      revisionDate: '2026-09-07',
-      reasonForIssue: 'For Client Approval',
-      reviewStatus: 'code_3_revise_resubmit',
-      milestoneStage: 'detailed_engineering',
-      commercialValue: 92000,
-      currency: 'USD',
-      costCode: 'CC-ELE-DES-04',
-      linkedCorrespondenceIds: [],
-      linkedCorrespondenceNumbers: [],
-      revisions: [
-        {
-          id: 'rev-4-b',
-          revision: 'Rev B',
-          issueDate: '2026-09-07',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'For Client Approval',
-          reviewStatus: 'code_3_revise_resubmit',
-          notes: 'Client requested revised short circuit calculations on Bus 2.',
-          createdAt: '2026-09-07T12:00:00.000Z',
-        },
-      ],
-      createdByUserId: 'usr-admin-1',
-      createdByUserName: 'Ali Kashefi',
-      departmentId: 'dept-1',
-      departmentName: 'Executive Leadership',
-      createdAt: '2026-09-07T11:00:00.000Z',
-      updatedAt: '2026-09-07T12:00:00.000Z',
-    },
-    {
-      id: 'doc-tech-5',
-      documentNumber: 'PRJ01-PJMAK-CNT-CTR-001',
-      title: 'Specialized Subcontract Agreement: Piping Spool Pre-Fabrication & Hydrotesting',
-      description: 'Contract with qualified fabrication yard for 450 tons of alloy and carbon steel piping spools.',
-      projectCode: 'PRJ-2026-01',
-      projectName: 'Bandar Abbas Petrochemical Modernization',
-      clientCompany: 'National Petrochemical Co.',
-      supplierName: 'Farayand Sazan Industrial Fabricators',
-      discipline: 'CNT',
-      documentType: 'CTR',
-      originator: 'PJMAK',
-      sequenceNumber: 1,
-      currentRevision: 'Rev 0',
-      revisionDate: '2026-09-10',
-      reasonForIssue: 'For Subcontract Execution',
-      reviewStatus: 'code_1_approved',
-      milestoneStage: 'award_contracting',
-      commercialValue: 88000,
-      currency: 'USD',
-      costCode: 'CC-SUB-FAB-01',
-      contractNumber: 'SUB-PJMAK-2026-014',
-      linkedCorrespondenceIds: [],
-      linkedCorrespondenceNumbers: [],
-      revisions: [
-        {
-          id: 'rev-5-0',
-          revision: 'Rev 0',
-          issueDate: '2026-09-10',
-          issuedByUserId: 'usr-admin-1',
-          issuedByUserName: 'Ali Kashefi',
-          reasonForIssue: 'For Subcontract Execution',
-          reviewStatus: 'code_1_approved',
-          createdAt: '2026-09-10T16:00:00.000Z',
-        },
-      ],
-      createdByUserId: 'usr-admin-1',
-      createdByUserName: 'Ali Kashefi',
-      departmentId: 'dept-1',
-      departmentName: 'Executive Leadership',
-      createdAt: '2026-09-10T15:00:00.000Z',
-      updatedAt: '2026-09-10T16:00:00.000Z',
-    },
-  ];
+  const technicalDocuments: TechnicalDocument[] = [];
 
   const emailTemplates: EmailTemplateItem[] = [
     {
@@ -757,13 +517,40 @@ export function initDatabase(): DatabaseSchema {
       if (!db.auditLogs) db.auditLogs = initial.auditLogs;
       if (!db.numberSequences) db.numberSequences = initial.numberSequences;
       if (!db.companySettings) db.companySettings = initial.companySettings;
+      if (db.companySettings) {
+        if (db.companySettings.footerText?.includes('Project Management Key')) {
+          db.companySettings.footerText = "PJMAK Company • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: +31 610 26 95 54";
+        }
+        if (db.companySettings.phone === '(+31) 610 26 95 54') {
+          db.companySettings.phone = '+31 610 26 95 54';
+        }
+      }
       if (!db.templates) db.templates = initial.templates;
       if (!db.archiveFolders || db.archiveFolders.length === 0) db.archiveFolders = initial.archiveFolders;
-      if (!db.technicalDocuments || db.technicalDocuments.length === 0) db.technicalDocuments = initial.technicalDocuments;
+      // Clean out sample technical documents so EDMS is pristine for real production document producing & sharing
+      if (db.technicalDocuments) {
+        db.technicalDocuments = db.technicalDocuments.filter(
+          (d) => !d.id.startsWith('doc-tech-')
+        );
+      } else {
+        db.technicalDocuments = [];
+      }
+      if (db.documentShares) {
+        db.documentShares = db.documentShares.filter(
+          (s) => !s.documentId.startsWith('doc-tech-')
+        );
+      } else {
+        db.documentShares = [];
+      }
+      if (db.documentComments) {
+        db.documentComments = db.documentComments.filter(
+          (c) => !c.documentId.startsWith('doc-tech-')
+        );
+      } else {
+        db.documentComments = [];
+      }
       if (!db.emailTemplates || db.emailTemplates.length === 0) db.emailTemplates = initial.emailTemplates;
       if (!db.externalUsers || db.externalUsers.length === 0) db.externalUsers = initial.externalUsers;
-      if (!db.documentShares || db.documentShares.length === 0) db.documentShares = initial.documentShares;
-      if (!db.documentComments || db.documentComments.length === 0) db.documentComments = initial.documentComments;
       if (!db.externalAuditLogs || db.externalAuditLogs.length === 0) db.externalAuditLogs = initial.externalAuditLogs;
 
       // Ensure Ali Kashefi exists as primary administrator with credentials
@@ -810,7 +597,7 @@ export function wipeDatabaseToClean(): DatabaseSchema {
     ...initial,
     users: existingUsers,
     archiveFolders: existingFolders,
-    technicalDocuments: cleanedTechDocs,
+    technicalDocuments: [],
     correspondence: [],
     tasks: [],
     contacts: [],
@@ -818,7 +605,7 @@ export function wipeDatabaseToClean(): DatabaseSchema {
       {
         id: `aud-wipe-${Date.now()}`,
         action: 'DATABASE_CLEANED',
-        newValue: 'All correspondence, tasks, and contacts wiped clean for production operation',
+        newValue: 'All correspondence, tasks, contacts, and technical documents wiped clean for production operation',
         performedByUserId: existingUsers[0].id,
         performedByUserName: existingUsers[0].name,
         timestamp: new Date().toISOString(),
@@ -828,6 +615,14 @@ export function wipeDatabaseToClean(): DatabaseSchema {
   };
   saveDatabase();
   return db;
+}
+
+export function clearAllTechnicalDocuments(): void {
+  const currentDb = getDb();
+  currentDb.technicalDocuments = [];
+  currentDb.documentShares = [];
+  currentDb.documentComments = [];
+  saveDatabase();
 }
 
 export function saveDatabase(): void {

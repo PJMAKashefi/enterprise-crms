@@ -272,8 +272,26 @@ export interface Correspondence {
   senderEmail: string;
   recipientOrg: string;
   recipientPerson: string;
+  recipientPosition?: string;
   recipientEmail: string;
+  additionalRecipients?: {
+    id?: string;
+    orgName: string;
+    contactPerson: string;
+    position?: string;
+    email?: string;
+  }[];
   ccEmails: string[];
+  externalCcRecipients?: {
+    id?: string;
+    name: string;
+    orgName?: string;
+    position?: string;
+    email?: string;
+  }[];
+  showCcOnLetter?: boolean; // Whether CC appears on the official letterhead / PDF
+  internalCcUserIds?: string[]; // Internal team members CC'd (reflected in forwarding history)
+  internalCcUserNames?: string[];
   bccEmails?: string[];
 
   // Internal Correspondence & Distribution details
@@ -639,6 +657,29 @@ export interface TechnicalDocument {
   // Revisions & Attachments
   revisions: DocumentRevision[];
   attachments?: Attachment[];
+
+  // Document Origin & Word-Style Engineering Workspace (Pages 1-3)
+  documentMode?: 'generated' | 'received'; // 'generated' = created in-house (Word-style), 'received' = received from external stakeholder
+  documentScope?: string; // e.g., 'Boskalis Offshore Export Cable Installation'
+  clientDocumentNumber?: string; // External / Client reference e.g. '02488566'
+  clientRevisionCode?: string; // e.g., 'C'
+  contractorDocumentNumber?: string; // e.g., 'P0036341-BSCF-GEN-RP-1014'
+  contractorRevisionNo?: string; // e.g., '0'
+  poNumber?: string; // e.g., 'P0036341'
+  rdsPpCode?: string; // Work breakdown / RDS-PP / Asset code e.g. '#HOW02=X01AAD12WB002-WB001&CDB'
+  fileFormat?: string; // 'docx' | 'pdf' | 'dwg' | 'xlsx'
+  bodyHtml?: string; // Rich HTML / Word-style document content or review commentary
+  holdPoints?: {
+    nr: number;
+    description: string;
+    responsibleParty: string;
+    status: 'Open' | 'Closed' | 'Pending';
+  }[];
+  revisionHistoryItems?: {
+    revision: string;
+    section: string;
+    changeDescription: string;
+  }[];
 
   // Metadata
   createdByUserId: string;

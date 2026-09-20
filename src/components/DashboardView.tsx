@@ -218,10 +218,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* 1. Executive Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-blue-100 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-blue-100 shadow-2xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-black text-blue-950 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-blue-950 tracking-tight">
               Executive Dashboard
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-900 border border-blue-200 font-bold">
@@ -235,23 +235,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               month: 'long',
               day: 'numeric',
             })}{' '}
-            • Welcome back, <strong className="text-slate-800">{currentUser.name}</strong> ({currentUser.title})
+            • Operational & Compliance Overview
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => setShowAuditModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-950 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
-            title="View Immutable Audit Trail"
-          >
-            <Shield className="h-4 w-4 text-blue-800" />
-            <span>Audit Trail</span>
-            <span className="px-1.5 py-0.2 bg-white text-blue-900 font-mono text-[10px] font-bold rounded-full border border-blue-200">
-              {auditLogs.length}
-            </span>
-          </button>
-
           <button
             onClick={onRegisterIncoming}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-950 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
@@ -722,7 +710,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 5. Audit Trail Modal */}
+      {/* 5. Immutable Audit Trail (Positioned at the bottom of the dashboard page) */}
+      <div className="bg-white p-6 rounded-2xl border border-blue-100 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 shadow-2xs">
+              <Shield className="h-5 w-5 text-blue-800" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-blue-950">Immutable Audit Trail</h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-900 border border-blue-200 font-bold">
+                  {auditLogs.length} Verified Entries
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Tamper-Evident Ledger
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Statutory accountability ledger recording all numbering reservations, approvals, status transitions, and transmissions.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowAuditModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-950 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded-lg shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <Shield className="h-3.5 w-3.5 text-blue-800" />
+            <span>Open Full Audit Ledger</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Live preview of recent entries */}
+        <div className="divide-y divide-slate-100">
+          {auditLogs.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-400">No audit logs recorded yet.</div>
+          ) : (
+            auditLogs.slice(0, 5).map((log) => (
+              <div
+                key={log.id}
+                className="py-3 px-2 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs hover:bg-slate-50/80 rounded-xl transition-colors"
+              >
+                <div className="flex items-start md:items-center gap-3 min-w-0">
+                  <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                    {log.timestamp.replace('T', ' ').slice(0, 19)}
+                  </span>
+                  <span className="font-semibold text-blue-950 capitalize shrink-0">
+                    {log.action.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-slate-600 truncate">
+                    Ref: <strong className="font-mono text-slate-800">{log.targetEntityId}</strong>
+                    {log.reason && (
+                      <span className="italic text-slate-500 ml-2">
+                        &quot;{log.reason}&quot;
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                  <span className="text-[11px] text-slate-500">
+                    Officer: <strong className="text-slate-700">{log.performedByUserName}</strong>
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 6. Audit Trail Modal */}
       {showAuditModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-blue-100 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">

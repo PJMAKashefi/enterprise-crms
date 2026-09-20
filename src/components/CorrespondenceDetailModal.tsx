@@ -841,88 +841,73 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                             <PjmakLogo variant="full" size="md" />
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                            Document Reference
+                        <div className="text-right shrink-0 font-sans space-y-1">
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-700">Our Ref: </span>
+                            <span className="font-mono font-bold text-slate-900">{correspondence.correspondenceNumber}</span>
                           </div>
-                          <div className="font-mono text-sm font-bold text-slate-900">
-                            {correspondence.correspondenceNumber}
+                          <div className="text-xs text-slate-700">
+                            <span className="font-bold">Date: </span>
+                            <span>{correspondence.officialDate}</span>
                           </div>
-                          <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                            Date: {correspondence.officialDate}
+                          <div className="text-xs text-slate-700">
+                            <span className="font-bold">Attachment: </span>
+                            <span className={totalAttachments > 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}>
+                              {totalAttachments > 0 ? `Yes (${totalAttachments})` : 'No'}
+                            </span>
                           </div>
+                          {correspondence.externalRefNumber && (
+                            <div className="text-xs text-slate-600 font-mono">
+                              <span className="font-bold font-sans text-slate-700">Your Ref: </span>
+                              <span>{correspondence.externalRefNumber}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Addressee Info */}
-                      <div className="mt-5 pt-3 border-t border-slate-200 text-xs">
-                        <div className="text-slate-500 font-semibold uppercase text-[10px]">
-                          {isIncoming ? 'Received From:' : 'To:'}
+                      {/* Addressee Info: Left top side with larger recipient font matching company name size */}
+                      <div className="mt-5 pt-3 border-t border-slate-200 text-xs space-y-1">
+                        <div className="text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                          {isIncoming ? 'From:' : 'To:'}
                         </div>
-                        <div className="text-sm font-bold text-slate-900">
+                        <div className="text-base sm:text-lg font-bold text-slate-900">
                           {isIncoming ? correspondence.senderOrg : correspondence.recipientOrg}
                         </div>
                         {(correspondence.recipientPerson || correspondence.senderPerson) && (
-                          <div className="text-slate-700">
-                            Attn: {isIncoming ? correspondence.senderPerson : correspondence.recipientPerson}
+                          <div className="text-slate-700 font-medium text-xs">
+                            <span className="font-bold text-slate-800">Attention: </span>
+                            <span>{isIncoming ? correspondence.senderPerson : correspondence.recipientPerson}</span>
+                            {correspondence.recipientPosition && (
+                              <span className="text-slate-500"> ({correspondence.recipientPosition})</span>
+                            )}
                           </div>
                         )}
-                        {correspondence.externalRefNumber && (
-                          <div className="text-slate-500 font-mono text-[11px] mt-0.5">
-                            Your Ref: {correspondence.externalRefNumber}
+                        {(correspondence.recipientEmail || correspondence.senderEmail) && (
+                          <div className="text-slate-600 text-xs">
+                            <span className="font-bold text-slate-800">Email: </span>
+                            <span>{isIncoming ? correspondence.senderEmail : correspondence.recipientEmail}</span>
+                          </div>
+                        )}
+
+                        {/* Additional Recipients (Multiple Addressees) */}
+                        {correspondence.additionalRecipients && correspondence.additionalRecipients.length > 0 && (
+                          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              Additional Addressees:
+                            </div>
+                            {correspondence.additionalRecipients.map((addl, idx) => (
+                              <div key={addl.id || idx} className="text-xs text-slate-800 pl-2 border-l-2 border-slate-300">
+                                <span className="font-bold text-slate-900">{addl.orgName}</span>
+                                {addl.contactPerson && (
+                                  <span className="text-slate-600 ml-1.5">
+                                    — Attn: {addl.contactPerson} {addl.position ? `(${addl.position})` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
-
-                      {/* Commercial & Financial Traceability Strip */}
-                      {(correspondence.clientCode || correspondence.costCode || correspondence.revenueCode || correspondence.contractNumber || correspondence.proformaInvoiceNumber || correspondence.commercialValue !== undefined) && (
-                        <div className="mt-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg text-xs space-y-1.5 font-sans">
-                          <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider flex items-center gap-1.5">
-                            <Tag className="h-3 w-3 text-emerald-600" />
-                            <span>Commercial & Financial Traceability</span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                            {correspondence.clientCode && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Client Code</span>
-                                <span className="font-mono font-bold text-slate-800">{correspondence.clientCode}</span>
-                              </div>
-                            )}
-                            {correspondence.costCode && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Cost Code</span>
-                                <span className="font-mono font-bold text-slate-800">{correspondence.costCode}</span>
-                              </div>
-                            )}
-                            {correspondence.revenueCode && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Revenue Code</span>
-                                <span className="font-mono font-bold text-slate-800">{correspondence.revenueCode}</span>
-                              </div>
-                            )}
-                            {correspondence.contractNumber && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Contract No</span>
-                                <span className="font-mono font-bold text-slate-800">{correspondence.contractNumber}</span>
-                              </div>
-                            )}
-                            {correspondence.proformaInvoiceNumber && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Proforma Invoice</span>
-                                <span className="font-mono font-bold text-slate-800">{correspondence.proformaInvoiceNumber}</span>
-                              </div>
-                            )}
-                            {correspondence.commercialValue !== undefined && correspondence.commercialValue !== null && (
-                              <div>
-                                <span className="text-slate-400 block text-[9px] font-bold uppercase">Commercial Value</span>
-                                <span className="font-mono font-bold text-emerald-800">
-                                  {correspondence.currency || 'USD'} {Number(correspondence.commercialValue).toLocaleString()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -931,18 +916,6 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                     <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
                       SUBJECT: {correspondence.subject}
                     </span>
-                  </div>
-
-                  {/* Attachment Indicator */}
-                  <div className="font-sans text-xs mb-6 text-slate-600 border-b border-slate-100 pb-2">
-                    <span className="font-bold text-slate-800">Attachment: </span>
-                    {totalAttachments > 0 ? (
-                      <span className="font-semibold text-slate-900">
-                        Yes ({totalAttachments} {totalAttachments === 1 ? 'document' : 'documents'})
-                      </span>
-                    ) : (
-                      <span className="text-slate-500 font-normal">No</span>
-                    )}
                   </div>
 
                   {/* Document Body */}
@@ -997,9 +970,28 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                     )}
                   </div>
 
+                  {/* CC distribution list on official letter if enabled */}
+                  {correspondence.showCcOnLetter !== false &&
+                    ((correspondence.externalCcRecipients && correspondence.externalCcRecipients.length > 0) ||
+                      (correspondence.ccEmails && correspondence.ccEmails.length > 0) ||
+                      (correspondence.internalCcUserNames && correspondence.internalCcUserNames.length > 0)) && (
+                      <div className="font-sans pt-4 mt-4 border-t border-slate-200 text-xs text-slate-700">
+                        <span className="font-bold text-slate-900">cc: </span>
+                        <span>
+                          {[
+                            ...(correspondence.externalCcRecipients || []).map((e) => `${e.name}${e.orgName ? ` (${e.orgName})` : ''}`),
+                            ...(correspondence.internalCcUserNames || []),
+                            ...(correspondence.ccEmails || []).filter(
+                              (em) => !(correspondence.externalCcRecipients || []).some((ext) => ext.email === em)
+                            ),
+                          ].join(', ')}
+                        </span>
+                      </div>
+                    )}
+
                   {/* Letterhead Footer: Official Company Information at the bottom */}
                   <div className="font-sans text-[10px] text-slate-400 text-center pt-8 mt-8 border-t border-slate-200">
-                    {settings.footerText}
+                    {settings.footerText || "PJMAK Company • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: +31 610 26 95 54"}
                   </div>
                 </div>
               )}

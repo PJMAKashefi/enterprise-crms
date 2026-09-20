@@ -21,12 +21,17 @@ export function generateCorrespondencePdf(
   // --- HEADER / LETTERHEAD ---
   let cursorY = margin;
 
-  // Crown accent (golden orange)
+  // Crisp Vector Crown Accent (Amber/Gold)
   doc.setFillColor(245, 158, 11); // amber-500
-  // Small crown crest
-  doc.triangle(margin + 20, cursorY, margin + 25, cursorY - 5, margin + 30, cursorY, 'F');
-  doc.triangle(margin + 28, cursorY, margin + 32, cursorY - 7, margin + 36, cursorY, 'F');
-  doc.triangle(margin + 34, cursorY, margin + 39, cursorY - 5, margin + 44, cursorY, 'F');
+  // Left point
+  doc.triangle(margin + 44, cursorY + 6, margin + 47, cursorY + 1.5, margin + 50, cursorY + 6, 'F');
+  // Center taller point
+  doc.triangle(margin + 48, cursorY + 6, margin + 51, cursorY - 0.5, margin + 54, cursorY + 6, 'F');
+  // Right point
+  doc.triangle(margin + 52, cursorY + 6, margin + 55, cursorY + 1.5, margin + 58, cursorY + 6, 'F');
+  // Crown base band
+  doc.setFillColor(217, 119, 6); // amber-600
+  doc.roundedRect(margin + 44, cursorY + 6, 14, 1.2, 0.4, 0.4, 'F');
 
   // Corporate Brand Name
   doc.setFont('helvetica', 'bold');
@@ -36,8 +41,8 @@ export function generateCorrespondencePdf(
 
   // Header separator line
   cursorY += 12;
-  doc.setDrawColor(226, 232, 240); // slate-200
-  doc.setLineWidth(0.6);
+  doc.setDrawColor(203, 213, 225); // slate-300
+  doc.setLineWidth(0.5);
   doc.line(margin, cursorY, pageWidth - margin, cursorY);
   cursorY += 6;
 
@@ -85,69 +90,143 @@ export function generateCorrespondencePdf(
 
     cursorY += 29;
   } else {
-    // --- OFFICIAL EXTERNAL METADATA BLOCK (No internal tags) ---
-    const metaBoxY = cursorY;
-    const metaBoxHeight = 16;
+    // --- REORGANIZED EXTERNAL SPLIT HEADER ---
+    // Left: To, Attention, Email
+    // Right: Our Ref, (Your Ref), Date, Attachment
+    const splitStartY = cursorY;
+    const rightColX = margin + 102;
+    const leftColWidth = 98;
+    const rightColWidth = contentWidth - 102;
 
+    // LEFT SIDE: RECIPIENT BLOCK
+    let leftY = splitStartY;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(correspondence.type === 'incoming' ? 'FROM:' : 'TO:', margin, leftY);
+    leftY += 5;
+
+    // Recipient Organization - Larger font matching company name
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13); // Prominent size matching company branding
+    doc.setTextColor(15, 23, 42); // slate-900
+    const recipientOrgText = correspondence.type === 'incoming' ? correspondence.senderOrg : (correspondence.recipientOrg || 'Valued Partner / Organization');
+    const orgLines = doc.splitTextToSize(recipientOrgText, leftColWidth);
+    doc.text(orgLines, margin, leftY);
+    leftY += (orgLines.length * 5.5) + 1;
+
+    // Attention Person & Position
+    const attnPerson = correspondence.type === 'incoming' ? correspondence.senderPerson : correspondence.recipientPerson;
+    const attnPosition = correspondence.recipientPosition;
+    if (attnPerson) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Attention:', margin, leftY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      const fullAttn = attnPosition ? `${attnPerson} (${attnPosition})` : attnPerson;
+      const attnLines = doc.splitTextToSize(fullAttn, leftColWidth - 20);
+      doc.text(attnLines, margin + 18, leftY);
+      leftY += (attnLines.length * 4.5) + 1;
+    }
+
+    // Email
+    const attnEmail = correspondence.type === 'incoming' ? correspondence.senderEmail : correspondence.recipientEmail;
+    if (attnEmail) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Email:', margin, leftY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(attnEmail, margin + 14, leftY);
+      leftY += 5;
+    }
+
+    // Additional Recipients (Multiple "To" Addressees)
+    if (correspondence.additionalRecipients && correspondence.additionalRecipients.length > 0) {
+      correspondence.additionalRecipients.forEach((addl) => {
+        if (leftY > 82) return;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(15, 23, 42);
+        const addlOrg = doc.splitTextToSize(`& ${addl.orgName}`, leftColWidth);
+        doc.text(addlOrg, margin, leftY);
+        leftY += (addlOrg.length * 4) + 0.5;
+        if (addl.contactPerson) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(71, 85, 105);
+          const addlAttn = addl.position ? `Attn: ${addl.contactPerson} (${addl.position})` : `Attn: ${addl.contactPerson}`;
+          const attnLines = doc.splitTextToSize(addlAttn, leftColWidth);
+          doc.text(attnLines, margin, leftY);
+          leftY += (attnLines.length * 3.5) + 0.5;
+        }
+      });
+    }
+
+    // RIGHT SIDE: METADATA PANEL (Our Ref, Date, Attachment)
+    let rightY = splitStartY;
     doc.setFillColor(248, 250, 252); // slate-50
     doc.setDrawColor(226, 232, 240); // slate-200
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, metaBoxY, contentWidth, metaBoxHeight, 1.5, 1.5, 'FD');
+    const metaBoxHeight = correspondence.externalRefNumber ? 26 : 21;
+    doc.roundedRect(rightColX - 3, rightY - 3, rightColWidth + 3, metaBoxHeight, 1.5, 1.5, 'FD');
 
-    // Official Ref
+    // Our Ref
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(15, 23, 42);
-    doc.text('OUR REF:', margin + 4, metaBoxY + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(15, 23, 42);
-    doc.text(correspondence.correspondenceNumber, margin + 26, metaBoxY + 6);
-
-    if (correspondence.externalRefNumber) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(71, 85, 105);
-      doc.text('YOUR REF:', margin + 4, metaBoxY + 12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(correspondence.externalRefNumber, margin + 26, metaBoxY + 12);
-    }
-
-    // Official Date
-    const rightColX = margin + contentWidth / 2 + 10;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 23, 42);
-    doc.text('DATE:', rightColX, metaBoxY + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.text(correspondence.officialDate, rightColX + 16, metaBoxY + 6);
-
-    cursorY = metaBoxY + metaBoxHeight + 8;
-
-    // --- RECIPIENT BLOCK ---
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('OUR REF:', rightColX, rightY + 2.5);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text('TO:', margin, cursorY);
-
-    doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(correspondence.recipientOrg || 'Valued Partner / Organization', margin + 12, cursorY);
+    doc.text(correspondence.correspondenceNumber, rightColX + 22, rightY + 2.5);
+    rightY += 5.5;
 
-    cursorY += 5;
-    if (correspondence.recipientPerson) {
+    // Optional Your Ref
+    if (correspondence.externalRefNumber) {
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
       doc.setTextColor(71, 85, 105);
-      doc.text('ATTENTION:', margin, cursorY);
+      doc.text('YOUR REF:', rightColX, rightY + 2.5);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(15, 23, 42);
-      doc.text(correspondence.recipientPerson, margin + 26, cursorY);
-      cursorY += 5;
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(correspondence.externalRefNumber, rightColX + 22, rightY + 2.5);
+      rightY += 5;
     }
 
-    if (correspondence.recipientEmail) {
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Email: ${correspondence.recipientEmail}`, margin + 12, cursorY);
-      cursorY += 6;
-    }
+    // Date
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('DATE:', rightColX, rightY + 2.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(correspondence.officialDate, rightColX + 22, rightY + 2.5);
+    rightY += 5.5;
+
+    // Attachment: Yes (X) / No
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('ATTACHMENT:', rightColX, rightY + 2.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const hasAttachments = correspondence.attachments && correspondence.attachments.length > 0;
+    const attSummary = hasAttachments
+      ? `Yes (${correspondence.attachments.length} ${correspondence.attachments.length === 1 ? 'item' : 'items'})`
+      : 'No';
+    doc.setTextColor(hasAttachments ? 15 : 100, hasAttachments ? 23 : 116, hasAttachments ? 42 : 139);
+    doc.text(attSummary, rightColX + 26, rightY + 2.5);
+    rightY += 6;
+
+    cursorY = Math.max(leftY, splitStartY + metaBoxHeight + 2) + 4;
   }
 
   // --- SUBJECT LINE ---
@@ -275,14 +354,13 @@ export function generateCorrespondencePdf(
   doc.text(correspondence.signatoryPosition || settings.signature.position, margin, cursorY);
   cursorY += 8;
 
-  // --- ATTACHMENT(S) INDICATOR (Standard Official Rule #9) ---
+  // --- ATTACHMENT(S) ENCLOSURES (If present) ---
   const hasAttachments = correspondence.attachments && correspondence.attachments.length > 0;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
-
   if (hasAttachments) {
-    doc.text(`Attachment(s): Yes (${correspondence.attachments.length} ${correspondence.attachments.length === 1 ? 'enclosure' : 'enclosures'})`, margin, cursorY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Enclosures (${correspondence.attachments.length}):`, margin, cursorY);
     cursorY += 4;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -293,25 +371,35 @@ export function generateCorrespondencePdf(
         cursorY += 3.5;
       }
     });
-  } else {
-    doc.text('Attachment: None', margin, cursorY);
-    cursorY += 4;
+    cursorY += 2;
   }
 
-  // --- COPY TO (CC) BLOCK IF PRESENT ---
-  const ccList = correspondence.ccEmails && correspondence.ccEmails.length > 0
-    ? correspondence.ccEmails
-    : correspondence.internalDistributions?.[0]?.ccUserNames || [];
+  // --- COPY TO (CC) BLOCK IF PRESENT & ENABLED FOR LETTERHEAD ---
+  if (correspondence.showCcOnLetter !== false) {
+    const externalCcFormatted = (correspondence.externalCcRecipients || []).map(
+      (ext) => `${ext.name}${ext.orgName ? ` (${ext.orgName})` : ''}`
+    );
+    const ccList = [
+      ...externalCcFormatted,
+      ...(correspondence.ccEmails || []).filter(
+        (email) => !(correspondence.externalCcRecipients || []).some((ext) => ext.email === email)
+      ),
+      ...(correspondence.internalCcUserNames || []),
+    ];
 
-  if (ccList.length > 0) {
-    cursorY += 2;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text('cc:', margin, cursorY);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(ccList.join(', '), margin + 8, cursorY);
+    if (ccList.length > 0) {
+      cursorY += 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('cc:', margin, cursorY);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      const ccStr = ccList.join(', ');
+      const ccLines = doc.splitTextToSize(ccStr, pageWidth - (margin * 2) - 10);
+      doc.text(ccLines, margin + 8, cursorY);
+      cursorY += (ccLines.length * 3.5);
+    }
   }
 
   // Footer on final page
@@ -340,7 +428,8 @@ function addFooter(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(settings.footerText, margin, footerY);
+  const cleanFooter = settings.footerText?.replace(/\(Project Management Key\)\s*•?\s*/g, '') || "PJMAK Company • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: +31 610 26 95 54";
+  doc.text(cleanFooter, margin, footerY);
 
   const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
   doc.text(`Page ${pageNumber}`, pageWidth - margin - 12, footerY);

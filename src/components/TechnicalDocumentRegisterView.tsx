@@ -34,6 +34,8 @@ import {
   Eye,
   FileSpreadsheet,
   ArrowLeft,
+  Printer,
+  Sparkles,
 } from 'lucide-react';
 import {
   TechnicalDocument,
@@ -44,15 +46,24 @@ import {
   DocumentMilestone,
   User,
   Correspondence,
+  Contact,
 } from '../types';
 import { ShareDocumentModal } from './ShareDocumentModal';
 import { ExternalSharesManagerModal } from './ExternalSharesManagerModal';
 import { TechnicalDrawingPreview } from './TechnicalDrawingPreview';
+import { TechnicalDocumentEditorModal } from './TechnicalDocumentEditorModal';
+import {
+  generateClientCode,
+  generateDefaultCostCode,
+  generateDefaultRevenueCode,
+} from '../utils/clientCodeGenerator';
 
 interface TechnicalDocumentRegisterViewProps {
   documents: TechnicalDocument[];
   correspondence: Correspondence[];
   currentUser: User;
+  contacts?: Contact[];
+  onCreateContact?: (contact: Partial<Contact>) => Promise<Contact>;
   onOpenDocument?: (doc: TechnicalDocument) => void;
   onOpenCorrespondence?: (correspondenceNumber: string) => void;
   onRefreshData?: () => void;
@@ -105,6 +116,8 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
   documents,
   correspondence,
   currentUser,
+  contacts = [],
+  onCreateContact,
   onOpenDocument,
   onOpenCorrespondence,
   onRefreshData,
@@ -131,33 +144,59 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Word-Style Document Authoring & Studio State
+  const [editingDoc, setEditingDoc] = useState<TechnicalDocument | null>(null);
+  const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+
+  // Right-Click Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    doc: TechnicalDocument;
+  } | null>(null);
+
   // Controlled External Share State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [documentToShare, setDocumentToShare] = useState<TechnicalDocument | null>(null);
   const [isExternalSharesModalOpen, setIsExternalSharesModalOpen] = useState(false);
 
+  // Client Selection & Auto-Coding State
+  const [isAddingNewClient, setIsAddingNewClient] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientContactPerson, setNewClientContactPerson] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+
   // New Document Form State
   const [newForm, setNewForm] = useState({
     title: '',
     description: '',
+    documentMode: 'generated' as 'generated' | 'received',
+    documentScope: 'Boskalis Offshore Export Cable Installation',
+    clientDocumentNumber: '02488566',
+    clientRevisionCode: 'C',
+    contractorDocumentNumber: '',
+    contractorRevisionNo: '0',
+    poNumber: 'P0036341',
+    rdsPpCode: '#HOW02=X01AAD12WB002-WB001&CDB',
     projectCode: 'PRJ-2026-01',
-    projectName: 'Bandar Abbas Petrochemical Modernization',
-    clientCompany: 'National Petrochemical Co.',
-    clientContactPerson: 'Eng. Reza Mohammadi',
-    clientEmail: 'r.mohammadi@npc-iran.ir',
+    projectName: 'Hornsea Two Export Cable Installation',
+    clientCompany: 'Ørsted Wind Power',
+    clientContactPerson: 'Eng. Anders Lind',
+    clientEmail: 'a.lind@orsted.com',
     discipline: 'TEC' as DocumentDiscipline,
     documentType: 'PRP' as DocumentTypeCode,
     originator: 'PJMAK',
-    currentRevision: 'Rev A',
+    currentRevision: 'Rev 0',
     reasonForIssue: 'Tender / Technical Bid Submission',
     reviewStatus: 'under_review' as DocumentReviewStatus,
     milestoneStage: 'tender_bidding' as DocumentMilestone,
     commercialValue: '',
     currency: 'USD',
-    costCode: 'CC-ENG-2026-01',
-    revenueCode: 'REV-BANDAR-001',
+    costCode: 'CC-ORS-2026',
+    revenueCode: 'REV-ORS-001',
     proformaInvoiceNumber: '',
-    contractNumber: '',
+    contractNumber: '0049',
     supplierName: '',
     transmittalLetterNumber: '',
   });
@@ -181,6 +220,20 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     thirdPartyReviewer: '',
     thirdPartyStatus: 'pending' as 'pending' | 'approved' | 'approved_with_comments' | 'rejected',
   });
+
+  // Dismiss context menu on click outside or escape
+  React.useEffect(() => {
+    const handleWindowClick = () => setContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    window.addEventListener('click', handleWindowClick);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleWindowClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Unique projects for filtering
   const projectList = useMemo(() => {
@@ -217,6 +270,122 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     });
   }, [documents, selectedDiscipline, selectedType, selectedStatus, selectedProject, searchQuery]);
 
+  // Handle client selection with auto cost/revenue code allocation
+  const handleSelectClient = (clientName: string) => {
+    if (clientName === '__ADD_NEW__') {
+      setIsAddingNewClient(true);
+      return;
+    }
+    setIsAddingNewClient(false);
+    const found = contacts.find(
+      (c) =>
+        (c.orgName && c.orgName.toLowerCase() === clientName.toLowerCase()) ||
+        (c.name && c.name.toLowerCase() === clientName.toLowerCase())
+    );
+
+    let clientCode = '';
+    let costCode = newForm.costCode;
+    let revenueCode = newForm.revenueCode;
+    let contactPerson = newForm.clientContactPerson;
+    let email = newForm.clientEmail;
+
+    if (found) {
+      clientCode = found.contactCode || generateClientCode(found.orgName || found.name);
+      costCode = found.defaultCostCode || generateDefaultCostCode(clientCode);
+      revenueCode = found.defaultRevenueCode || generateDefaultRevenueCode(clientCode);
+      contactPerson = found.contactPerson || found.name || contactPerson;
+      email = found.email || email;
+    } else if (clientName.trim()) {
+      clientCode = generateClientCode(clientName);
+      costCode = generateDefaultCostCode(clientCode);
+      revenueCode = generateDefaultRevenueCode(clientCode);
+    }
+
+    setNewForm((prev) => ({
+      ...prev,
+      clientCompany: clientName,
+      costCode,
+      revenueCode,
+      clientContactPerson: contactPerson,
+      clientEmail: email,
+    }));
+  };
+
+  // Handle save new client dynamically
+  const handleSaveNewClient = async () => {
+    if (!newClientName.trim()) return;
+    const clientCode = generateClientCode(newClientName);
+    const costCode = generateDefaultCostCode(clientCode);
+    const revenueCode = generateDefaultRevenueCode(clientCode);
+
+    if (onCreateContact) {
+      try {
+        await onCreateContact({
+          name: newClientName,
+          orgName: newClientName,
+          contactPerson: newClientContactPerson || undefined,
+          email: newClientEmail || undefined,
+          contactCode: clientCode,
+          defaultCostCode: costCode,
+          defaultRevenueCode: revenueCode,
+          role: 'client',
+        });
+      } catch (e) {
+        console.error('Failed to create contact via prop', e);
+      }
+    }
+
+    setNewForm((prev) => ({
+      ...prev,
+      clientCompany: newClientName,
+      costCode,
+      revenueCode,
+      clientContactPerson: newClientContactPerson || prev.clientContactPerson,
+      clientEmail: newClientEmail || prev.clientEmail,
+    }));
+    setIsAddingNewClient(false);
+  };
+
+  // Right-click context menu handler
+  const handleContextMenu = (e: React.MouseEvent, doc: TechnicalDocument) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const x = Math.min(e.clientX, window.innerWidth - 260);
+    const y = Math.min(e.clientY, window.innerHeight - 380);
+    setContextMenu({ visible: true, x, y, doc });
+  };
+
+  // Save document from Word-style editor
+  const handleSaveEditedDoc = async (updatedDoc: TechnicalDocument) => {
+    const res = await fetch(`/api/documents/${updatedDoc.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedDoc),
+    });
+    if (res.ok) {
+      const saved = await res.json();
+      setEditingDoc(saved);
+      if (selectedDoc?.id === saved.id) {
+        setSelectedDoc(saved);
+      }
+      if (onRefreshData) onRefreshData();
+    }
+  };
+
+  // Delete document
+  const handleDeleteDocument = async (docId: string) => {
+    if (!window.confirm('Are you sure you want to remove this document from the register?')) return;
+    try {
+      const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+      if (res.ok) {
+        if (selectedDoc?.id === docId) setSelectedDoc(null);
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+    }
+  };
+
   // Handle copy document number
   const handleCopyDocNumber = (e: React.MouseEvent, docNumber: string) => {
     e.stopPropagation();
@@ -241,8 +410,12 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
         }),
       });
       if (res.ok) {
+        const createdDoc = await res.json();
         setIsCreateModalOpen(false);
         if (onRefreshData) onRefreshData();
+        // Immediately open the newly created document in the Word-style workspace!
+        setEditingDoc(createdDoc);
+        setIsEditorModalOpen(true);
       }
     } catch (err) {
       console.error('Failed to create document:', err);
@@ -424,6 +597,26 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
             <ShieldCheck className="h-4 w-4 text-teal-600 stroke-[2.5]" />
             <span>Controlled External Access</span>
           </button>
+
+          {currentUser?.role === 'admin' && documents.length > 0 && (
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to clean all sample documents in EDMS? This will give you a clean slate for real document producing and sharing.')) {
+                  try {
+                    await fetch('/api/documents/clear-all', { method: 'POST' });
+                    if (onRefreshData) onRefreshData();
+                  } catch (e) {
+                    console.error('Failed to clear documents', e);
+                  }
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              title="Clean all documents in EDMS"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+              <span className="hidden sm:inline">Clean All Documents</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
@@ -619,23 +812,42 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
       {/* Main Full-Width Spacious Table */}
       <div className="flex-1 overflow-auto bg-white">
         {filteredDocs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-80 text-slate-400">
-            <Layers className="h-16 w-16 stroke-[1.2] mb-3 text-slate-300" />
-            <p className="text-base font-bold text-slate-700">No technical documents match your criteria</p>
-            <p className="text-xs text-slate-400 mt-1">Try resetting your filters or search keywords</p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedDiscipline('ALL');
-                setSelectedType('ALL');
-                setSelectedStatus('ALL');
-                setSelectedProject('ALL');
-              }}
-              className="mt-4 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 text-xs font-bold hover:bg-blue-100 transition-colors cursor-pointer"
-            >
-              Reset All Filters
-            </button>
-          </div>
+          documents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-80 text-slate-400 p-8 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mb-3 text-blue-900 shadow-xs">
+                <Layers className="h-8 w-8 text-blue-800" />
+              </div>
+              <p className="text-base font-bold text-slate-900">EDMS Clean & Ready for Production</p>
+              <p className="text-xs text-slate-500 mt-1 max-w-md">
+                All sample documents have been cleared. You can now register real engineering documents, proposals, drawings, and manage client submissions.
+              </p>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+              >
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                <span>Register First Document</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-80 text-slate-400">
+              <Layers className="h-16 w-16 stroke-[1.2] mb-3 text-slate-300" />
+              <p className="text-base font-bold text-slate-700">No technical documents match your criteria</p>
+              <p className="text-xs text-slate-400 mt-1">Try resetting your filters or search keywords</p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedDiscipline('ALL');
+                  setSelectedType('ALL');
+                  setSelectedStatus('ALL');
+                  setSelectedProject('ALL');
+                }}
+                className="mt-4 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 text-xs font-bold hover:bg-blue-100 transition-colors cursor-pointer"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          )
         ) : (
           <table className="w-full text-left border-collapse min-w-[1300px]">
             {/* Table Header */}
@@ -673,6 +885,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       setSelectedDoc(doc);
                       setInspectorTab('overview');
                     }}
+                    onContextMenu={(e) => handleContextMenu(e, doc)}
                     className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${
                       isSelected ? 'bg-blue-50/80 ring-1 ring-blue-500/20' : ''
                     } ${viewDensity === 'spacious' ? 'py-4' : 'py-2'}`}
@@ -701,7 +914,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                           {doc.documentType} • {DOC_TYPE_LABELS[doc.documentType] || 'Doc'}
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-50 text-blue-800 border border-blue-100">
-                          {doc.fileFormat?.toUpperCase() || 'DWG'}
+                          {doc.fileFormat?.toUpperCase() || (doc.documentType === 'DWG' ? 'DWG' : 'DOCX')}
                         </span>
                       </div>
                     </td>
@@ -859,6 +1072,19 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setEditingDoc(doc);
+                            setIsEditorModalOpen(true);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-xs transition-colors cursor-pointer border border-indigo-200 shadow-2xs"
+                          title="Open Word Studio & 3-Page Engineering Dossier"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>Studio</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedDoc(doc);
                             setInspectorTab('overview');
                           }}
@@ -926,6 +1152,18 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingDoc(selectedDoc);
+                    setIsEditorModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  title="Open Word Studio & 3-Page Engineering Dossier"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Document Studio</span>
+                </button>
+
                 <button
                   onClick={() => {
                     setDocumentToShare(selectedDoc);
@@ -1505,6 +1743,32 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
             </div>
 
             <form onSubmit={handleCreateDocument} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+              {/* Document Mode Switcher */}
+              <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setNewForm({ ...newForm, documentMode: 'generated' })}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    newForm.documentMode === 'generated'
+                      ? 'bg-blue-900 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Document Generated by Contractor / Us
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewForm({ ...newForm, documentMode: 'received' })}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    newForm.documentMode === 'received'
+                      ? 'bg-blue-900 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Document Received from Client / Subcontractor
+                </button>
+              </div>
+
               {/* Document Number Preview */}
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
                 <span className="text-[10px] font-bold text-blue-950/70 uppercase">
@@ -1516,28 +1780,41 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                 </div>
               </div>
 
-              {/* Title & Description */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Document Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={newForm.title}
-                  onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
-                  placeholder="e.g., Gas Fractionation Unit P&ID Schematic"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                />
-              </div>
+              {/* Title & Scope */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Document Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newForm.title}
+                    onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
+                    placeholder="e.g., Cable Pull-in and Termination Method Statement"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Scope / Description</label>
-                <textarea
-                  rows={2}
-                  value={newForm.description}
-                  onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
-                  placeholder="Detailed engineering scope, drawing sheet references, tag numbers..."
-                  className="w-full p-2 border border-slate-300 rounded-lg text-xs resize-none"
-                />
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Scope of Work (Dossier Header)</label>
+                  <input
+                    type="text"
+                    value={newForm.documentScope}
+                    onChange={(e) => setNewForm({ ...newForm, documentScope: e.target.value })}
+                    placeholder="e.g., Boskalis Offshore Export Cable Installation"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Scope / Description Summary</label>
+                  <textarea
+                    rows={2}
+                    value={newForm.description}
+                    onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
+                    placeholder="Detailed engineering scope, drawing sheet references, tag numbers..."
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs resize-none"
+                  />
+                </div>
               </div>
 
               {/* Classification Grid */}
@@ -1573,25 +1850,152 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                 </div>
               </div>
 
-              {/* Client & Project */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Client Company</label>
-                  <input
-                    type="text"
-                    value={newForm.clientCompany}
-                    onChange={(e) => setNewForm({ ...newForm, clientCompany: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg"
-                  />
+              {/* Client Selection with Auto Cost Code & Revenue Code */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-800 text-xs">Client Company & Project</label>
+                  <span className="text-[10px] text-blue-900 font-semibold">Auto-assigns Cost & Revenue Code</span>
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Project Name</label>
-                  <input
-                    type="text"
-                    value={newForm.projectName}
-                    onChange={(e) => setNewForm({ ...newForm, projectName: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Client Organization *</label>
+                    <select
+                      value={isAddingNewClient ? '__ADD_NEW__' : newForm.clientCompany}
+                      onChange={(e) => handleSelectClient(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
+                    >
+                      <option value="">— Select Client —</option>
+                      {contacts
+                        .filter((c) => c.role === 'client' || c.role === 'subcontractor' || c.orgName)
+                        .map((c) => (
+                          <option key={c.id} value={c.orgName || c.name}>
+                            {c.orgName || c.name} {c.contactCode ? `(${c.contactCode})` : ''}
+                          </option>
+                        ))}
+                      <option value="__ADD_NEW__">+ Add New Client Company...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Project Name</label>
+                    <input
+                      type="text"
+                      value={newForm.projectName}
+                      onChange={(e) => setNewForm({ ...newForm, projectName: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Inline form to create a new client and save to address book */}
+                {isAddingNewClient && (
+                  <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg space-y-2">
+                    <span className="text-[11px] font-bold text-blue-950 block">Quick-Add New Client Organization</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Company Name *"
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
+                        className="px-2 py-1.5 bg-white border border-slate-300 rounded text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Contact Person"
+                        value={newClientContactPerson}
+                        onChange={(e) => setNewClientContactPerson(e.target.value)}
+                        className="px-2 py-1.5 bg-white border border-slate-300 rounded text-xs"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Contact Email"
+                        value={newClientEmail}
+                        onChange={(e) => setNewClientEmail(e.target.value)}
+                        className="px-2 py-1.5 bg-white border border-slate-300 rounded text-xs"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingNewClient(false)}
+                        className="px-3 py-1 border border-slate-300 rounded text-xs text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveNewClient}
+                        className="px-3 py-1 bg-blue-900 text-white rounded text-xs font-bold hover:bg-blue-800"
+                      >
+                        Save & Apply Client Code
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Technical & Offshore Cross-References (from 3-Page Dossier Spec) */}
+              <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-950 text-xs">Contractor & Client Cross-Reference Numbers</span>
+                  <span className="text-[10px] text-indigo-800 font-mono">3-Page Dossier Metadata</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Client Document Number</label>
+                    <input
+                      type="text"
+                      value={newForm.clientDocumentNumber}
+                      onChange={(e) => setNewForm({ ...newForm, clientDocumentNumber: e.target.value })}
+                      placeholder="e.g., 02488566"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Client Revision Code</label>
+                    <input
+                      type="text"
+                      value={newForm.clientRevisionCode}
+                      onChange={(e) => setNewForm({ ...newForm, clientRevisionCode: e.target.value })}
+                      placeholder="e.g., C or 01"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">PO Number</label>
+                    <input
+                      type="text"
+                      value={newForm.poNumber}
+                      onChange={(e) => setNewForm({ ...newForm, poNumber: e.target.value })}
+                      placeholder="e.g., P0036341"
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">RDS-PP Code</label>
+                    <input
+                      type="text"
+                      value={newForm.rdsPpCode}
+                      onChange={(e) => setNewForm({ ...newForm, rdsPpCode: e.target.value })}
+                      placeholder="#HOW02=X01..."
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Contract Number</label>
+                    <input
+                      type="text"
+                      value={newForm.contractNumber}
+                      onChange={(e) => setNewForm({ ...newForm, contractNumber: e.target.value })}
+                      placeholder="e.g., 0049"
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1608,21 +2012,25 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Cost Code</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Cost Code <span className="text-[10px] text-blue-900 font-normal">(Auto-calculated)</span>
+                  </label>
                   <input
                     type="text"
                     value={newForm.costCode}
                     onChange={(e) => setNewForm({ ...newForm, costCode: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono bg-blue-50/40"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Revenue Code</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Revenue Code <span className="text-[10px] text-blue-900 font-normal">(Auto-calculated)</span>
+                  </label>
                   <input
                     type="text"
                     value={newForm.revenueCode}
                     onChange={(e) => setNewForm({ ...newForm, revenueCode: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono bg-blue-50/40"
                   />
                 </div>
               </div>
@@ -1924,6 +2332,111 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           onRefreshData={onRefreshData}
           onOpenExternalViewer={onOpenExternalViewer}
         />
+      )}
+
+      {/* MODAL: Word-Style Document Authoring & 3-Page Engineering Dossier */}
+      {isEditorModalOpen && editingDoc && (
+        <TechnicalDocumentEditorModal
+          document={editingDoc}
+          currentUser={currentUser}
+          contacts={contacts}
+          isOpen={isEditorModalOpen}
+          onClose={() => {
+            setIsEditorModalOpen(false);
+            setEditingDoc(null);
+          }}
+          onSave={handleSaveEditedDoc}
+        />
+      )}
+
+      {/* CONTEXT MENU: Right-Click Context Actions */}
+      {contextMenu && (
+        <div
+          id="tech-doc-context-menu"
+          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 w-64 text-xs text-slate-700 animate-in fade-in zoom-in-95 duration-100 select-none"
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 border-b border-slate-100 font-mono text-[11px] text-slate-500 font-bold flex items-center justify-between">
+            <span className="truncate">{contextMenu.doc.documentNumber}</span>
+            <span className="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[9px]">
+              {contextMenu.doc.currentRevision}
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              setEditingDoc(contextMenu.doc);
+              setIsEditorModalOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-blue-50 hover:text-blue-900 flex items-center gap-2 font-bold text-blue-950 transition-colors cursor-pointer"
+          >
+            <FileText className="h-4 w-4 text-blue-800" />
+            <span>Open in Word Studio & Dossier</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedDoc(contextMenu.doc);
+              setInspectorTab('overview');
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 font-medium transition-colors cursor-pointer"
+          >
+            <Eye className="h-4 w-4 text-slate-500" />
+            <span>View Technical Inspector</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setDocumentToShare(contextMenu.doc);
+              setIsShareModalOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 font-medium transition-colors cursor-pointer"
+          >
+            <Share2 className="h-4 w-4 text-teal-600" />
+            <span>Controlled External Share</span>
+          </button>
+
+          <button
+            onClick={(e) => {
+              handleCopyDocNumber(e, contextMenu.doc.documentNumber);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 font-medium transition-colors cursor-pointer"
+          >
+            <Copy className="h-4 w-4 text-slate-500" />
+            <span>Copy Document Number</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedDoc(contextMenu.doc);
+              setIsRevisionModalOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 font-medium transition-colors cursor-pointer"
+          >
+            <History className="h-4 w-4 text-amber-600" />
+            <span>Issue New Revision</span>
+          </button>
+
+          <div className="h-px bg-slate-100 my-1" />
+
+          <button
+            onClick={() => {
+              const docId = contextMenu.doc.id;
+              setContextMenu(null);
+              handleDeleteDocument(docId);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-rose-50 text-rose-600 flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+          >
+            <Trash2 className="h-4 w-4 text-rose-500" />
+            <span>Delete Document</span>
+          </button>
+        </div>
       )}
     </div>
   );

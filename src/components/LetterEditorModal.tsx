@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Sparkles,
@@ -29,6 +29,19 @@ import {
   CreditCard,
   ChevronUp,
   BadgeDollarSign,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  List,
+  ListOrdered,
+  Indent,
+  Outdent,
+  Type,
+  Code,
 } from 'lucide-react';
 import {
   generateClientCode,
@@ -47,6 +60,7 @@ import {
   LetterTemplate,
   RelatedLink,
   Attachment,
+  User,
 } from '../types';
 import { PjmakLogo } from './PjmakLogo';
 import { SignatureEnhancerModal } from './SignatureEnhancerModal';
@@ -56,6 +70,7 @@ interface EditorModalProps {
   allCorrespondence: Correspondence[];
   contacts: Contact[];
   departments: Department[];
+  users?: User[];
   settings: CompanySettings;
   templates: LetterTemplate[];
   replyToItem?: Correspondence | null;
@@ -69,6 +84,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   allCorrespondence,
   contacts,
   departments,
+  users = [],
   settings,
   templates,
   replyToItem,
@@ -126,6 +142,9 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [recipientPerson, setRecipientPerson] = useState(
     replyToItem ? replyToItem.senderPerson : ''
   );
+  const [recipientPosition, setRecipientPosition] = useState(
+    replyToItem?.recipientPosition || ''
+  );
   const [recipientEmail, setRecipientEmail] = useState(
     replyToItem ? replyToItem.senderEmail : ''
   );
@@ -136,6 +155,101 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
     initialType === 'internal' ? settings.signature.signatoryName : ''
   );
   const [senderEmail, setSenderEmail] = useState('');
+
+  // CC Distribution State
+  const [showCcOnLetter, setShowCcOnLetter] = useState(
+    replyToItem?.showCcOnLetter !== undefined ? replyToItem.showCcOnLetter : true
+  );
+  const [internalCcUserIds, setInternalCcUserIds] = useState<string[]>(
+    replyToItem?.internalCcUserIds || []
+  );
+  const [ccEmails, setCcEmails] = useState<string[]>(
+    replyToItem?.ccEmails || []
+  );
+  const [newCcEmailInput, setNewCcEmailInput] = useState('');
+
+  // Additional Recipients (Multiple "TO" Addressees)
+  const [additionalRecipients, setAdditionalRecipients] = useState<
+    Array<{ id: string; orgName: string; contactPerson: string; position: string; email: string }>
+  >(
+    (replyToItem?.additionalRecipients || []).map((r, i) => ({
+      id: r.id || `addl-recip-${i}-${Date.now()}`,
+      orgName: r.orgName || '',
+      contactPerson: r.contactPerson || '',
+      position: r.position || '',
+      email: r.email || '',
+    }))
+  );
+  const [showAddRecipientRow, setShowAddRecipientRow] = useState(false);
+  const [newAddlOrg, setNewAddlOrg] = useState('');
+  const [newAddlPerson, setNewAddlPerson] = useState('');
+  const [newAddlPosition, setNewAddlPosition] = useState('');
+  const [newAddlEmail, setNewAddlEmail] = useState('');
+
+  // External CC Recipients (Out of Organization CC)
+  const [externalCcRecipients, setExternalCcRecipients] = useState<
+    Array<{ id: string; name: string; orgName?: string; position?: string; email?: string }>
+  >(
+    (replyToItem?.externalCcRecipients || []).map((r, i) => ({
+      id: r.id || `ext-cc-${i}-${Date.now()}`,
+      name: r.name || '',
+      orgName: r.orgName || '',
+      position: r.position || '',
+      email: r.email || '',
+    }))
+  );
+  const [externalCcSearch, setExternalCcSearch] = useState('');
+
+  // Word Processor Rich Editor Controls
+  const [editorFontFamily, setEditorFontFamily] = useState<'serif' | 'sans' | 'garamond' | 'mono'>('serif');
+  const [editorFontSize, setEditorFontSize] = useState<'10pt' | '11pt' | '12pt' | '14pt'>('12pt');
+  const [editorAlignment, setEditorAlignment] = useState<'left' | 'center' | 'right' | 'justify'>('left');
+  const [editorIndentLevel, setEditorIndentLevel] = useState<number>(0);
+  const [editorViewMode, setEditorViewMode] = useState<'visual' | 'code'>('visual');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const visualEditorRef = useRef<HTMLDivElement>(null);
+
+  const applyFormat = (tagOpen: string, tagClose: string) => {
+    if (editorViewMode === 'code' && textareaRef.current) {
+      const el = textareaRef.current;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const selected = bodyHtml.substring(start, end);
+      const replacement = `${tagOpen}${selected || 'text'}${tagClose}`;
+      const newBody = bodyHtml.substring(0, start) + replacement + bodyHtml.substring(end);
+      setBodyHtml(newBody);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + tagOpen.length, start + tagOpen.length + (selected ? selected.length : 4));
+      }, 50);
+    } else {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const fragment = range.extractContents();
+        const wrapper = document.createElement('span');
+        wrapper.innerHTML = `${tagOpen}${fragment.textContent || ''}${tagClose}`;
+        range.insertNode(wrapper);
+        if (visualEditorRef.current) {
+          setBodyHtml(visualEditorRef.current.innerHTML);
+        }
+      } else {
+        setBodyHtml((prev) => `${prev}${tagOpen}Formatted text${tagClose}`);
+      }
+    }
+  };
+
+  const applyAlignment = (align: 'left' | 'center' | 'right' | 'justify') => {
+    setEditorAlignment(align);
+    applyFormat(`<div style="text-align: ${align};">`, `</div>`);
+  };
+
+  const applyIndent = (delta: number) => {
+    setEditorIndentLevel((prev) => Math.max(0, Math.min(prev + delta, 5)));
+    if (delta > 0) {
+      applyFormat(`<blockquote style="margin-left: 28px; padding-left: 12px; border-left: 2px solid #cbd5e1;">`, `</blockquote>`);
+    }
+  };
 
   // Classification & Routing
   const [confidentiality, setConfidentiality] =
@@ -199,7 +313,9 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [showNewContactModal, setShowNewContactModal] = useState(false);
   const [newContactOrg, setNewContactOrg] = useState('');
   const [newContactPerson, setNewContactPerson] = useState('');
+  const [newContactPosition, setNewContactPosition] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
+  const [contactSuccessToast, setContactSuccessToast] = useState<string | null>(null);
 
   // Commercial & Financial Traceability
   const [clientCode, setClientCode] = useState(replyToItem?.clientCode || '');
@@ -345,6 +461,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
     if (type === 'outgoing') {
       setRecipientOrg(c.orgName);
       setRecipientPerson(c.contactPerson);
+      setRecipientPosition(c.position || '');
       setRecipientEmail(c.email);
     } else {
       setSenderOrg(c.orgName);
@@ -386,22 +503,32 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
     setShowCommercialSection(true);
   };
 
-  const handleSaveContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newContactOrg || !newContactEmail) return;
+  const handleSaveContact = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!newContactOrg.trim() || !newContactEmail.trim()) {
+      alert('Organization Name and Email Address are required.');
+      return;
+    }
     try {
       const created = await onCreateContact({
-        orgName: newContactOrg,
-        contactPerson: newContactPerson,
-        email: newContactEmail,
+        orgName: newContactOrg.trim(),
+        contactPerson: newContactPerson.trim(),
+        position: newContactPosition.trim(),
+        email: newContactEmail.trim(),
       });
       handleContactSelect(created);
       setShowNewContactModal(false);
+      setContactSuccessToast(`Created & selected contact: ${created.orgName} (${created.contactPerson || created.email})`);
+      setTimeout(() => setContactSuccessToast(null), 5000);
       setNewContactOrg('');
       setNewContactPerson('');
+      setNewContactPosition('');
       setNewContactEmail('');
-    } catch (e) {
-      alert('Failed to create contact');
+    } catch (err: any) {
+      alert(err.message || 'Failed to create contact');
     }
   };
 
@@ -492,8 +619,8 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, saveMode?: 'draft' | 'register') => {
+    if (e) e.preventDefault();
     if (!subject.trim()) {
       alert('Subject is required.');
       return;
@@ -504,9 +631,21 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
       const originDept = departments.find((d) => d.id === originDeptId);
       const destDept = departments.find((d) => d.id === destinationDeptId);
 
+      const computedStatus =
+        saveMode === 'register'
+          ? (type === 'outgoing' ? 'issued' : 'registered')
+          : saveMode === 'draft'
+          ? 'draft'
+          : (type === 'outgoing' ? 'draft' : 'registered');
+
+      const internalCcNames = (users || [])
+        .filter((u) => internalCcUserIds.includes(u.id))
+        .map((u) => u.name);
+
       await onSave({
         type,
         actionPurpose,
+        status: computedStatus,
         subject,
         bodyHtml,
         confidentiality,
@@ -524,7 +663,14 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
             ? settings.companyName
             : recipientOrg,
         recipientPerson,
+        recipientPosition: recipientPosition.trim() || undefined,
         recipientEmail,
+        additionalRecipients: additionalRecipients.filter((r) => r.orgName.trim()),
+        showCcOnLetter,
+        internalCcUserIds,
+        internalCcUserNames: internalCcNames,
+        externalCcRecipients,
+        ccEmails,
         originDepartmentId: type === 'internal' ? originDeptId : undefined,
         originDepartmentName: type === 'internal' ? originDept?.name : undefined,
         destinationDepartmentId: type === 'internal' ? destinationDeptId : undefined,
@@ -676,6 +822,23 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
         >
           {activeTab === 'compose' ? (
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Contact Added Confirmation Banner */}
+              {contactSuccessToast && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2 text-xs font-semibold">
+                    <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>{contactSuccessToast}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setContactSuccessToast(null)}
+                    className="text-emerald-600 hover:text-emerald-900 text-xs font-bold px-2 py-0.5 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               {/* Requirement 7: Searchable Reply & Linked Correspondence */}
               <div className="p-4 rounded-xl border border-sky-100 bg-sky-50/40 space-y-3">
                 <div className="flex items-center justify-between">
@@ -1103,98 +1266,514 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                   </div>
                 </div>
               ) : (
-                /* External Correspondent Selection & Quick Contact Picker */
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      {type === 'outgoing'
-                        ? 'Recipient Correspondent'
-                        : 'Sender Correspondent'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 font-medium">
-                        Pick Existing:
-                      </span>
-                      <select
-                        onChange={(e) => {
-                          const found = contacts.find(
-                            (c) => c.id === e.target.value
-                          );
-                          if (found) handleContactSelect(found);
-                        }}
-                        className="px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Select from Contact Directory...
-                        </option>
-                        {contacts.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.orgName} — {c.contactPerson}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setShowNewContactModal(true)}
-                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-md cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>New Contact</span>
-                      </button>
+                /* External Correspondent Selection & Multi-Recipient Management */
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-4">
+                  {/* Primary Recipient / Sender */}
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          {type === 'outgoing' ? 'Primary Addressee (TO)' : 'Primary Sender (FROM)'}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 font-semibold text-slate-700">
+                          Main Contact
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-medium">Pick Existing:</span>
+                        <select
+                          onChange={(e) => {
+                            const found = contacts.find((c) => c.id === e.target.value);
+                            if (found) handleContactSelect(found);
+                          }}
+                          className="px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white text-slate-800"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Select from Contact Directory...</option>
+                          {contacts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.orgName} — {c.contactPerson}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewContactModal(true)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-md cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>New Contact</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Organization / Agency Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Apex Structural Consultants Ltd"
+                          value={type === 'outgoing' ? recipientOrg : senderOrg}
+                          onChange={(e) =>
+                            type === 'outgoing' ? setRecipientOrg(e.target.value) : setSenderOrg(e.target.value)
+                          }
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Attention Person / Signatory
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Dr. Arthur Pendelton"
+                          value={type === 'outgoing' ? recipientPerson : senderPerson}
+                          onChange={(e) =>
+                            type === 'outgoing' ? setRecipientPerson(e.target.value) : setSenderPerson(e.target.value)
+                          }
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Position / Designation
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Project Director / Lead Architect"
+                          value={recipientPosition}
+                          onChange={(e) => setRecipientPosition(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="contact@agency.com"
+                          value={type === 'outgoing' ? recipientEmail : senderEmail}
+                          onChange={(e) =>
+                            type === 'outgoing' ? setRecipientEmail(e.target.value) : setSenderEmail(e.target.value)
+                          }
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-900"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Organization / Agency Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Apex Structural Consultants Ltd"
-                        value={type === 'outgoing' ? recipientOrg : senderOrg}
-                        onChange={(e) =>
-                          type === 'outgoing'
-                            ? setRecipientOrg(e.target.value)
-                            : setSenderOrg(e.target.value)
-                        }
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
-                      />
+                  {/* Multiple "TO" Addressees (Additional Recipients) */}
+                  {type === 'outgoing' && (
+                    <div className="pt-3 border-t border-slate-200 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Additional Addressees (Multiple "TO")
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-semibold">
+                            {additionalRecipients.length} additional
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            onChange={(e) => {
+                              const found = contacts.find((c) => c.id === e.target.value);
+                              if (found) {
+                                setAdditionalRecipients((prev) => [
+                                  ...prev,
+                                  {
+                                    id: `addl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                    orgName: found.orgName,
+                                    contactPerson: found.contactPerson || '',
+                                    position: found.position || '',
+                                    email: found.email || '',
+                                  },
+                                ]);
+                              }
+                              e.target.value = '';
+                            }}
+                            className="px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white text-slate-800"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>+ Add from Directory as "TO"...</option>
+                            {contacts.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.orgName} — {c.contactPerson}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddRecipientRow(!showAddRecipientRow)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-md cursor-pointer"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>{showAddRecipientRow ? 'Close Form' : '+ Add Recipient Manually'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Inline form to add additional recipient */}
+                      {showAddRecipientRow && (
+                        <div className="p-3 bg-white rounded-lg border border-sky-200 space-y-2">
+                          <div className="text-[11px] font-bold text-sky-800 uppercase tracking-wider">
+                            New Recipient (TO) Details
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Organization Name *"
+                                value={newAddlOrg}
+                                onChange={(e) => setNewAddlOrg(e.target.value)}
+                                className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md"
+                              />
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Attention Person"
+                                value={newAddlPerson}
+                                onChange={(e) => setNewAddlPerson(e.target.value)}
+                                className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md"
+                              />
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Position / Role"
+                                value={newAddlPosition}
+                                onChange={(e) => setNewAddlPosition(e.target.value)}
+                                className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-md"
+                              />
+                            </div>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="email"
+                                placeholder="Email Address"
+                                value={newAddlEmail}
+                                onChange={(e) => setNewAddlEmail(e.target.value)}
+                                className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded-md"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!newAddlOrg.trim()) {
+                                    alert('Please enter organization name for the additional recipient.');
+                                    return;
+                                  }
+                                  setAdditionalRecipients((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `addl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                      orgName: newAddlOrg.trim(),
+                                      contactPerson: newAddlPerson.trim(),
+                                      position: newAddlPosition.trim(),
+                                      email: newAddlEmail.trim(),
+                                    },
+                                  ]);
+                                  setNewAddlOrg('');
+                                  setNewAddlPerson('');
+                                  setNewAddlPosition('');
+                                  setNewAddlEmail('');
+                                  setShowAddRecipientRow(false);
+                                }}
+                                className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-md cursor-pointer shrink-0"
+                              >
+                                Add TO
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display table of added multiple TO recipients */}
+                      {additionalRecipients.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          {additionalRecipients.map((recip, idx) => (
+                            <div
+                              key={recip.id || idx}
+                              className="flex items-center justify-between gap-3 p-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-800"
+                            >
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1">
+                                <span className="font-bold text-slate-900">{recip.orgName}</span>
+                                {recip.contactPerson && (
+                                  <span className="text-slate-600">
+                                    Attn: <strong>{recip.contactPerson}</strong>
+                                    {recip.position ? ` (${recip.position})` : ''}
+                                  </span>
+                                )}
+                                {recip.email && (
+                                  <span className="text-slate-400 font-mono text-[11px]">{recip.email}</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAdditionalRecipients((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                title="Remove recipient"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Attention Person / Signatory
+                  )}
+
+                  {/* CC Distribution Section (Multi-Select External Contacts + Internal Team) */}
+                  <div className="pt-3 border-t border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Copy To (CC Distribution)
+                        </span>
+                        <span className="text-[11px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                          {externalCcRecipients.length + internalCcUserIds.length + ccEmails.length} selected
+                        </span>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer bg-white px-2.5 py-1 rounded-md border border-slate-200 hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={showCcOnLetter}
+                          onChange={(e) => setShowCcOnLetter(e.target.checked)}
+                          className="rounded text-sky-600 focus:ring-sky-500 h-3.5 w-3.5"
+                        />
+                        <span>Print CC on Official Letterhead & PDF</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Dr. Arthur Pendelton"
-                        value={type === 'outgoing' ? recipientPerson : senderPerson}
-                        onChange={(e) =>
-                          type === 'outgoing'
-                            ? setRecipientPerson(e.target.value)
-                            : setSenderPerson(e.target.value)
-                        }
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
-                      />
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="contact@agency.com"
-                        value={type === 'outgoing' ? recipientEmail : senderEmail}
-                        onChange={(e) =>
-                          type === 'outgoing'
-                            ? setRecipientEmail(e.target.value)
-                            : setSenderEmail(e.target.value)
-                        }
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
-                      />
+
+                    {/* Section A: External Organization Contacts (Out of Organization CC) */}
+                    <div className="space-y-1.5 p-3 bg-white rounded-lg border border-amber-200/80">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-amber-950 uppercase tracking-wider">
+                            External Contacts (Out of Organization CC)
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            (Click any external contact to toggle in/out of CC)
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Filter external contacts..."
+                          value={externalCcSearch}
+                          onChange={(e) => setExternalCcSearch(e.target.value)}
+                          className="px-2 py-0.5 text-xs bg-slate-50 border border-slate-200 rounded-md w-48"
+                        />
+                      </div>
+
+                      {/* Contacts interactive selection grid */}
+                      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1">
+                        {contacts
+                          .filter((c) => {
+                            if (!externalCcSearch.trim()) return true;
+                            const q = externalCcSearch.toLowerCase();
+                            return (
+                              c.orgName.toLowerCase().includes(q) ||
+                              c.contactPerson.toLowerCase().includes(q) ||
+                              (c.position && c.position.toLowerCase().includes(q))
+                            );
+                          })
+                          .map((c) => {
+                            const isSelected = externalCcRecipients.some((r) => r.id === c.id);
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setExternalCcRecipients((prev) => prev.filter((r) => r.id !== c.id));
+                                    if (c.email) {
+                                      setCcEmails((prev) => prev.filter((e) => e !== c.email));
+                                    }
+                                  } else {
+                                    setExternalCcRecipients((prev) => [
+                                      ...prev,
+                                      {
+                                        id: c.id,
+                                        name: c.contactPerson,
+                                        orgName: c.orgName,
+                                        position: c.position,
+                                        email: c.email,
+                                      },
+                                    ]);
+                                    if (c.email && !ccEmails.includes(c.email)) {
+                                      setCcEmails((prev) => [...prev, c.email!]);
+                                    }
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer border text-left ${
+                                  isSelected
+                                    ? 'bg-amber-100 text-amber-950 border-amber-400 font-bold shadow-2xs'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                <span>{isSelected ? '✓' : '+'}</span>
+                                <span className="font-semibold">{c.orgName}</span>
+                                <span className="text-slate-500 font-normal">
+                                  — {c.contactPerson} {c.position ? `(${c.position})` : ''}
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
                     </div>
+
+                    {/* Section B: Internal Personnel CC (Multi-Select) */}
+                    {users && users.length > 0 && (
+                      <div className="space-y-1 p-3 bg-white rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Internal Team Members (CC)
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            ({internalCcUserIds.length} internal selected)
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                          {users.map((u) => {
+                            const isSelected = internalCcUserIds.includes(u.id);
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => {
+                                  setInternalCcUserIds((prev) =>
+                                    isSelected ? prev.filter((id) => id !== u.id) : [...prev, u.id]
+                                  );
+                                }}
+                                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer border ${
+                                  isSelected
+                                    ? 'bg-sky-100 text-sky-900 border-sky-300 font-bold shadow-2xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                <span>{isSelected ? '✓' : '+'}</span>
+                                <span>{u.name}</span>
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  ({u.departmentName || u.title})
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Section C: Additional External CC Email (Ad-Hoc) */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        Additional External CC Email (Ad-Hoc)
+                      </span>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="Add custom external CC email (e.g. legal@externalconsultant.com)..."
+                          value={newCcEmailInput}
+                          onChange={(e) => setNewCcEmailInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (newCcEmailInput.trim() && !ccEmails.includes(newCcEmailInput.trim())) {
+                                setCcEmails((prev) => [...prev, newCcEmailInput.trim()]);
+                                setNewCcEmailInput('');
+                              }
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 placeholder:text-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newCcEmailInput.trim() && !ccEmails.includes(newCcEmailInput.trim())) {
+                              setCcEmails((prev) => [...prev, newCcEmailInput.trim()]);
+                              setNewCcEmailInput('');
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg cursor-pointer shrink-0"
+                        >
+                          Add Email
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section D: Active Selected CC Badges Summary */}
+                    {(externalCcRecipients.length > 0 || internalCcUserIds.length > 0 || ccEmails.length > 0) && (
+                      <div className="p-2.5 bg-slate-100/80 rounded-lg border border-slate-200 space-y-1.5">
+                        <span className="text-[10px] uppercase font-bold text-slate-500">
+                          Active CC Recipient Distribution:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {/* External Contact Badges */}
+                          {externalCcRecipients.map((ext) => (
+                            <span
+                              key={ext.id}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 text-[11px] font-semibold border border-amber-300"
+                            >
+                              <span>Ext: {ext.orgName ? `${ext.orgName} — ` : ''}{ext.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExternalCcRecipients((prev) => prev.filter((r) => r.id !== ext.id));
+                                  if (ext.email) {
+                                    setCcEmails((prev) => prev.filter((e) => e !== ext.email));
+                                  }
+                                }}
+                                className="text-amber-700 hover:text-rose-600 cursor-pointer"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                          {/* Internal User Badges */}
+                          {users
+                            .filter((u) => internalCcUserIds.includes(u.id))
+                            .map((u) => (
+                              <span
+                                key={u.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-950 text-[11px] font-semibold border border-sky-300"
+                              >
+                                <span>Team: {u.name}</span>
+                                <button
+                                type="button"
+                                onClick={() =>
+                                  setInternalCcUserIds((prev) => prev.filter((id) => id !== u.id))
+                                }
+                                className="text-sky-700 hover:text-rose-600 cursor-pointer"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                          {/* Ad-Hoc Email Badges */}
+                          {ccEmails
+                            .filter((e) => !externalCcRecipients.some((r) => r.email === e))
+                            .map((email) => (
+                              <span
+                                key={email}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 text-[11px] font-medium border border-slate-300"
+                              >
+                                <span>{email}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setCcEmails((prev) => prev.filter((e) => e !== email))}
+                                  className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1434,42 +2013,246 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                 </div>
               )}
 
-              {/* Letter Body Editor */}
+              {/* Letter Body Editor with Word Processor Controls */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Official Letter Content (HTML Paragraphs) *
-                  </label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Letter Body & Content Editor *
+                    </label>
+                    <span className="text-[11px] text-slate-500 font-normal">
+                      (Executive typography & formatting)
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setEditorViewMode('visual')}
+                        className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                          editorViewMode === 'visual'
+                            ? 'bg-white text-sky-900 shadow-2xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Visual Editor</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditorViewMode('code')}
+                        className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                          editorViewMode === 'code'
+                            ? 'bg-white text-sky-900 shadow-2xs font-bold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Code className="h-3.5 w-3.5" />
+                        <span>HTML Source</span>
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() =>
                         setBodyHtml((prev) => `${prev}<p>We remain available to coordinate on site at your earliest convenience.</p>`)
                       }
-                      className="text-slate-600 hover:text-slate-900 text-[11px] underline cursor-pointer"
+                      className="text-slate-600 hover:text-slate-900 text-[11px] underline cursor-pointer hidden md:inline"
                     >
-                      + Insert Formal Closing
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setBodyHtml((prev) => `${prev}<p>Please treat this matter with the highest contractual priority.</p>`)
-                      }
-                      className="text-slate-600 hover:text-slate-900 text-[11px] underline cursor-pointer"
-                    >
-                      + Insert Priority Note
+                      + Formal Closing
                     </button>
                   </div>
                 </div>
 
-                <textarea
-                  rows={9}
-                  required
-                  value={bodyHtml}
-                  onChange={(e) => setBodyHtml(e.target.value)}
-                  placeholder="<p>Enter letter text with HTML paragraphs (<p>, <strong>, <ul>, <li>)...</p>"
-                  className="w-full p-3.5 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white"
-                />
+                {/* Word Processor Toolbar */}
+                <div className="p-2 bg-slate-100 border border-slate-300 rounded-t-xl flex flex-wrap items-center gap-1.5 text-xs text-slate-700">
+                  {/* Font Family */}
+                  <div className="flex items-center gap-1">
+                    <Type className="h-3.5 w-3.5 text-slate-500" />
+                    <select
+                      value={editorFontFamily}
+                      onChange={(e) => setEditorFontFamily(e.target.value as any)}
+                      className="px-2 py-1 text-xs bg-white border border-slate-300 rounded font-medium text-slate-800"
+                      title="Font Family"
+                    >
+                      <option value="serif">Georgia (Executive Serif)</option>
+                      <option value="garamond">Garamond (Formal Classical)</option>
+                      <option value="sans">Arial / Sans-Serif (Modern)</option>
+                      <option value="mono">Courier / Monospace (Technical)</option>
+                    </select>
+                  </div>
+
+                  {/* Font Size */}
+                  <select
+                    value={editorFontSize}
+                    onChange={(e) => setEditorFontSize(e.target.value as any)}
+                    className="px-2 py-1 text-xs bg-white border border-slate-300 rounded font-medium text-slate-800"
+                    title="Font Size"
+                  >
+                    <option value="10pt">10 pt (Compact)</option>
+                    <option value="11pt">11 pt (Standard)</option>
+                    <option value="12pt">12 pt (Recommended)</option>
+                    <option value="14pt">14 pt (Large / Header)</option>
+                  </select>
+
+                  <div className="h-4 w-px bg-slate-300 mx-0.5" />
+
+                  {/* Bold, Italic, Underline */}
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<strong>', '</strong>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 font-bold cursor-pointer"
+                    title="Bold"
+                  >
+                    <Bold className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<em>', '</em>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 italic cursor-pointer"
+                    title="Italic"
+                  >
+                    <Italic className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<u>', '</u>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 underline cursor-pointer"
+                    title="Underline"
+                  >
+                    <Underline className="h-3.5 w-3.5" />
+                  </button>
+
+                  <div className="h-4 w-px bg-slate-300 mx-0.5" />
+
+                  {/* Alignment */}
+                  <button
+                    type="button"
+                    onClick={() => applyAlignment('left')}
+                    className={`p-1.5 rounded border cursor-pointer ${
+                      editorAlignment === 'left'
+                        ? 'bg-white border-slate-300 text-sky-800 font-bold shadow-2xs'
+                        : 'border-transparent hover:bg-white hover:border-slate-300 text-slate-700'
+                    }`}
+                    title="Align Left"
+                  >
+                    <AlignLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyAlignment('center')}
+                    className={`p-1.5 rounded border cursor-pointer ${
+                      editorAlignment === 'center'
+                        ? 'bg-white border-slate-300 text-sky-800 font-bold shadow-2xs'
+                        : 'border-transparent hover:bg-white hover:border-slate-300 text-slate-700'
+                    }`}
+                    title="Align Center"
+                  >
+                    <AlignCenter className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyAlignment('right')}
+                    className={`p-1.5 rounded border cursor-pointer ${
+                      editorAlignment === 'right'
+                        ? 'bg-white border-slate-300 text-sky-800 font-bold shadow-2xs'
+                        : 'border-transparent hover:bg-white hover:border-slate-300 text-slate-700'
+                    }`}
+                    title="Align Right"
+                  >
+                    <AlignRight className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyAlignment('justify')}
+                    className={`p-1.5 rounded border cursor-pointer ${
+                      editorAlignment === 'justify'
+                        ? 'bg-white border-slate-300 text-sky-800 font-bold shadow-2xs'
+                        : 'border-transparent hover:bg-white hover:border-slate-300 text-slate-700'
+                    }`}
+                    title="Justify"
+                  >
+                    <AlignJustify className="h-3.5 w-3.5" />
+                  </button>
+
+                  <div className="h-4 w-px bg-slate-300 mx-0.5" />
+
+                  {/* Lists & Indentation */}
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<ul>\n  <li>', '</li>\n  <li>Second item</li>\n</ul>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-700 cursor-pointer"
+                    title="Bulleted List"
+                  >
+                    <List className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<ol>\n  <li>', '</li>\n  <li>Second item</li>\n</ol>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-700 cursor-pointer"
+                    title="Numbered List"
+                  >
+                    <ListOrdered className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyIndent(1)}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-700 cursor-pointer"
+                    title="Increase Indent"
+                  >
+                    <Indent className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyIndent(-1)}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-700 cursor-pointer"
+                    title="Decrease Indent"
+                  >
+                    <Outdent className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Editor Content Area */}
+                {editorViewMode === 'visual' ? (
+                  <div
+                    ref={visualEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onBlur={(e) => setBodyHtml(e.currentTarget.innerHTML)}
+                    dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                    className={`w-full min-h-[240px] max-h-[420px] overflow-y-auto p-5 bg-white border border-t-0 border-slate-300 rounded-b-xl focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-inner leading-relaxed ${
+                      editorFontFamily === 'serif'
+                        ? 'font-serif'
+                        : editorFontFamily === 'garamond'
+                        ? 'font-serif'
+                        : editorFontFamily === 'mono'
+                        ? 'font-mono'
+                        : 'font-sans'
+                    }`}
+                    style={{
+                      fontSize: editorFontSize,
+                      textAlign: editorAlignment,
+                      paddingLeft: `${20 + editorIndentLevel * 16}px`,
+                      fontFamily:
+                        editorFontFamily === 'serif'
+                          ? 'Georgia, serif'
+                          : editorFontFamily === 'garamond'
+                          ? '"EB Garamond", Garamond, serif'
+                          : editorFontFamily === 'mono'
+                          ? 'Courier, monospace'
+                          : 'system-ui, sans-serif',
+                    }}
+                  />
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    rows={10}
+                    required
+                    value={bodyHtml}
+                    onChange={(e) => setBodyHtml(e.target.value)}
+                    placeholder="<p>Enter letter text with HTML paragraphs (<p>, <strong>, <ul>, <li>)...</p>"
+                    className="w-full p-4 text-xs font-mono border border-t-0 border-slate-300 rounded-b-xl focus:ring-2 focus:ring-sky-500 bg-white"
+                  />
+                )}
               </div>
 
               {/* Attachments Section */}
@@ -1730,50 +2513,52 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                       <span className="font-semibold text-slate-900">{todayStr}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block text-[10px] font-bold">CLASSIFICATION:</span>
-                      <span className="font-semibold text-slate-900 uppercase">{confidentiality}</span>
+                      <span className="text-slate-400 block text-[10px] font-bold">ATTACHMENT:</span>
+                      <span className="font-semibold text-slate-900 uppercase">
+                        {attachments.length > 0 ? `Yes (${attachments.length})` : 'No'}
+                      </span>
                     </div>
                   </div>
 
-                  {(clientCode || costCode || revenueCode || contractNumber || proformaInvoiceNumber) && (
-                    <div className="font-sans flex flex-wrap gap-x-4 gap-y-1 text-[11px] bg-emerald-50/60 p-2.5 rounded border border-emerald-200">
-                      {clientCode && (
-                        <div>
-                          <span className="text-emerald-700 font-bold">CLIENT CODE:</span>{' '}
-                          <span className="font-mono font-semibold text-slate-800">{clientCode}</span>
-                        </div>
-                      )}
-                      {costCode && (
-                        <div>
-                          <span className="text-emerald-700 font-bold">COST CODE:</span>{' '}
-                          <span className="font-mono font-semibold text-slate-800">{costCode}</span>
-                        </div>
-                      )}
-                      {revenueCode && (
-                        <div>
-                          <span className="text-emerald-700 font-bold">REV CODE:</span>{' '}
-                          <span className="font-mono font-semibold text-slate-800">{revenueCode}</span>
-                        </div>
-                      )}
+                  {(contractNumber || proformaInvoiceNumber) && (
+                    <div className="font-sans flex flex-wrap gap-x-4 gap-y-1 text-[11px] bg-slate-50 p-2 rounded border border-slate-200">
                       {contractNumber && (
                         <div>
-                          <span className="text-emerald-700 font-bold">CONTRACT:</span>{' '}
+                          <span className="text-slate-600 font-bold">CONTRACT:</span>{' '}
                           <span className="font-mono font-semibold text-slate-800">{contractNumber}</span>
                         </div>
                       )}
                       {proformaInvoiceNumber && (
                         <div>
-                          <span className="text-emerald-700 font-bold">PI NO:</span>{' '}
+                          <span className="text-slate-600 font-bold">PI NO:</span>{' '}
                           <span className="font-mono font-semibold text-slate-800">{proformaInvoiceNumber}</span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  <div className="font-sans text-xs space-y-1">
-                    <div className="font-bold text-slate-500">TO:</div>
-                    <div className="font-bold text-slate-900 text-sm">{recipientOrg || '[Recipient Org]'}</div>
-                    {recipientPerson && <div className="text-slate-700">Attn: {recipientPerson}</div>}
+                  <div className="font-sans text-xs space-y-1.5">
+                    <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">TO:</div>
+                    <div className="space-y-1.5">
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">{recipientOrg || '[Primary Recipient Org]'}</div>
+                        {recipientPerson && (
+                          <div className="text-slate-700">
+                            Attn: {recipientPerson} {recipientPosition ? `(${recipientPosition})` : ''}
+                          </div>
+                        )}
+                      </div>
+                      {additionalRecipients.map((addl, idx) => (
+                        <div key={addl.id || idx} className="pt-1 border-t border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs">{addl.orgName}</div>
+                          {addl.contactPerson && (
+                            <div className="text-slate-600 text-[11px]">
+                              Attn: {addl.contactPerson} {addl.position ? `(${addl.position})` : ''}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="font-sans bg-slate-100 p-2.5 rounded border-l-4 border-slate-900 text-xs font-bold uppercase">
@@ -1817,6 +2602,37 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                     <p className="text-[11px] text-slate-500">{signatoryPosition}</p>
                   </div>
 
+                  {/* Copy To (CC) Distribution Block on Official Letterhead Preview */}
+                  {showCcOnLetter && (externalCcRecipients.length > 0 || internalCcUserIds.length > 0 || ccEmails.length > 0) && (
+                    <div className="font-sans pt-3 border-t border-slate-200 text-xs text-slate-700 space-y-1">
+                      <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Copy To (CC):</div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                        {/* External Contacts CC */}
+                        {externalCcRecipients.map((ext, idx) => (
+                          <span key={ext.id || idx} className="text-slate-800 font-medium">
+                            • {ext.name}{ext.orgName ? ` (${ext.orgName})` : ''}
+                          </span>
+                        ))}
+                        {/* Internal Team CC */}
+                        {users
+                          .filter((u) => internalCcUserIds.includes(u.id))
+                          .map((u) => (
+                            <span key={u.id} className="text-slate-800 font-medium">
+                              • {u.name} ({u.departmentName || u.title})
+                            </span>
+                          ))}
+                        {/* Ad-Hoc Email CC */}
+                        {ccEmails
+                          .filter((email) => !externalCcRecipients.some((ext) => ext.email === email))
+                          .map((email) => (
+                            <span key={email} className="text-slate-800 font-medium">
+                              • {email}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Official Company Footer at the bottom of the letter */}
                   <div className="font-sans text-[10px] text-slate-400 text-center pt-6 mt-6 border-t border-slate-200">
                     {settings.footerText}
@@ -1826,32 +2642,56 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
             </div>
           )}
 
-          {/* Bottom Action Buttons */}
-          <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
+          {/* Bottom Action Buttons: Clarifying Save Draft vs Issue Letter */}
+          <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer w-full sm:w-auto"
             >
               Cancel
             </button>
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors cursor-pointer"
-              >
-                <Check className="h-4 w-4 text-emerald-400" />
-                <span>
-                  {saving
-                    ? 'Registering...'
-                    : type === 'incoming'
-                    ? 'Register Incoming Letter'
-                    : type === 'outgoing'
-                    ? 'Save & Create Outgoing Draft'
-                    : 'Register & Distribute Internal Memo (IC)'}
-                </span>
-              </button>
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+              {type === 'outgoing' ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleSubmit(undefined, 'draft')}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    title="Save letter in draft status for further revision"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-slate-500" />
+                    <span>Save as Outgoing Draft</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleSubmit(undefined, 'register')}
+                    className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors cursor-pointer"
+                    title="Officially issue and register outgoing letter"
+                  >
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    <span>{saving ? 'Registering...' : 'Issue & Register Outgoing Letter'}</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleSubmit(undefined, 'register')}
+                  className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors cursor-pointer"
+                >
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <span>
+                    {saving
+                      ? 'Processing...'
+                      : type === 'incoming'
+                      ? 'Register Incoming Letter'
+                      : 'Register & Distribute Internal Memo (IC)'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </form>
@@ -2010,24 +2850,34 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
           </div>
         )}
 
-        {/* Inline Quick New Contact Modal */}
+        {/* Inline Quick New Contact Modal (Div instead of form to avoid triggering outer letter form submit) */}
         {showNewContactModal && (
-          <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/50 backdrop-blur-2xs p-4">
-            <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-md w-full space-y-4">
+          <div
+            className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/60 backdrop-blur-2xs p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowNewContactModal(false);
+            }}
+          >
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 max-w-md w-full space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Add New Correspondent Contact
-                </h3>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Add New Correspondent Contact
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Adds contact to directory and automatically populates this letter.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowNewContactModal(false)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveContact} className="space-y-3">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Organization / Company *
@@ -2038,20 +2888,31 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                     value={newContactOrg}
                     onChange={(e) => setNewContactOrg(e.target.value)}
                     placeholder="e.g. Metro Railway Authority"
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Contact Person *
+                    Contact Person
                   </label>
                   <input
                     type="text"
-                    required
                     value={newContactPerson}
                     onChange={(e) => setNewContactPerson(e.target.value)}
                     placeholder="e.g. Director Harold Finch"
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Position / Job Title
+                  </label>
+                  <input
+                    type="text"
+                    value={newContactPosition}
+                    onChange={(e) => setNewContactPosition(e.target.value)}
+                    placeholder="e.g. Managing Director / Chief Technical Officer"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
                 <div>
@@ -2064,25 +2925,27 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                     value={newContactEmail}
                     onChange={(e) => setNewContactEmail(e.target.value)}
                     placeholder="h.finch@metro.gov"
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setShowNewContactModal(false)}
-                    className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
-                    type="submit"
-                    className="px-4 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-2xs"
+                    type="button"
+                    onClick={handleSaveContact}
+                    className="px-4 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm cursor-pointer flex items-center gap-1.5"
                   >
-                    Save & Select
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Save Contact & Keep Drafting</span>
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         )}
