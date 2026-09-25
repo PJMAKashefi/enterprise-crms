@@ -318,7 +318,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                   <span className="text-xs text-slate-500">
                     Current EDMS Status:{' '}
                     <span className="font-semibold text-slate-700">
-                      {document.reviewStatus.replace(/_/g, ' ').toUpperCase()}
+                      {(document.reviewStatus || 'under_review').replace(/_/g, ' ').toUpperCase()}
                     </span>
                   </span>
                 </div>

@@ -111,7 +111,7 @@ export const ForwardTaskModal: React.FC<ForwardTaskModalProps> = ({
         responsibleDeptId: selectedUser?.departmentId || '',
         ccUserIds,
         actionType,
-        instructions: instructions || `Please take required action: ${actionType.replace(/_/g, ' ')}`,
+        instructions: instructions || `Please take required action: ${(actionType || '').replace(/_/g, ' ')}`,
         priority,
         dueDate,
         attachments: attachments.length > 0 ? attachments : undefined,

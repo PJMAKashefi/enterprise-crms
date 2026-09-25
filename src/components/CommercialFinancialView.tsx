@@ -182,8 +182,8 @@ export const CommercialFinancialView: React.FC<CommercialFinancialViewProps> = (
       c.proformaInvoiceNumber || 'N/A',
       c.commercialValue !== undefined ? String(c.commercialValue) : '0',
       c.currency || 'USD',
-      `"${(c.type === 'incoming' ? c.senderOrg : c.recipientOrg).replace(/"/g, '""')}"`,
-      `"${c.subject.replace(/"/g, '""')}"`,
+      `"${((c.type === 'incoming' ? c.senderOrg : c.recipientOrg) || '').replace(/"/g, '""')}"`,
+      `"${(c.subject || '').replace(/"/g, '""')}"`,
       c.officialDate,
       c.status,
     ]);
@@ -491,7 +491,7 @@ export const CommercialFinancialView: React.FC<CommercialFinancialViewProps> = (
 
                       <td className="py-3 px-3.5 text-center">
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 capitalize">
-                          {item.status.replace(/_/g, ' ')}
+                          {(item.status || 'draft').replace(/_/g, ' ')}
                         </span>
                       </td>
 

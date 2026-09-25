@@ -1,6 +1,6 @@
 {
   "name": "PJMAK Correspondence Management System",
-  "description": "Official PJMAK correspondence management system for incoming and outgoing letters, internal forwarding workflows, task tracking, letterhead PDF generation, and audit compliance.",
+  "description": "Official PJMAK correspondence and technical document management system (EDMS) with controlled document register, revision sign-off, and secure external proposal viewer layer.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

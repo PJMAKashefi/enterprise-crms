@@ -30,8 +30,10 @@ import {
   TechnicalDocument,
   ExtensionRequest,
   ExternalAccessStatus,
+  ExternalAccessSession,
 } from '../types';
 import { evaluateClientAccessStatus, getClientTimeInZone } from '../utils/accessSchedule';
+import { SecureProposalContent } from './SecureProposalContent';
 
 interface ExternalDocumentViewerProps {
   shareToken?: string;
@@ -56,6 +58,9 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
   // Loaded Share & Document state
   const [share, setShare] = useState<DocumentShare | null>(null);
+  const [secureSession, setSecureSession] = useState<ExternalAccessSession | null>(null);
+  const [securityViolationToast, setSecurityViolationToast] = useState<string | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<number>(1);
   const [document, setDocument] = useState<TechnicalDocument | null>(null);
   const [comments, setComments] = useState<DocumentComment[]>([]);
   const [selectedRevision, setSelectedRevision] = useState<string>('');
@@ -118,6 +123,53 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
     return () => clearInterval(interval);
   }, [share]);
 
+  const triggerSecurityWarning = (message: string) => {
+    setSecurityViolationToast(message);
+    setTimeout(() => setSecurityViolationToast(null), 4500);
+  };
+
+  const reportSecurityViolation = async (eventType: string) => {
+    if (shareToken) {
+      try {
+        await fetch(`/api/external-access/${shareToken}/security-event`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventType }),
+        });
+      } catch (e) {
+        // Silent failure for telemetry
+      }
+    }
+  };
+
+  // Keyboard shortcut interception for print, copy, and save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+      if (ctrlOrCmd && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        e.stopPropagation();
+        reportSecurityViolation('print_attempted');
+        triggerSecurityWarning('Security Block: Printing is prohibited for this confidential proposal under PJMAK security protocols.');
+      } else if (ctrlOrCmd && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        e.stopPropagation();
+        reportSecurityViolation('copy_attempted');
+        triggerSecurityWarning('Security Block: Clipboard copying is disabled for protected technical documents.');
+      } else if (ctrlOrCmd && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        e.stopPropagation();
+        reportSecurityViolation('save_attempted');
+        triggerSecurityWarning('Security Block: Saving local offline copies is prohibited.');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [secureSession, shareToken]);
+
   // Initial Load: check token or shareId
   useEffect(() => {
     fetchShareInfo();
@@ -129,7 +181,23 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
     try {
       if (shareToken) {
-        // Look up by token
+        // 1. Try fetching as dedicated secure external-access session
+        try {
+          const secRes = await fetch(`/api/external-access/${shareToken}`);
+          if (secRes.ok) {
+            const secData = await secRes.json();
+            setSecureSession(secData.session);
+            setDocument(secData.document);
+            setSelectedRevision(secData.document.currentRevision || 'Rev 0');
+            setLoading(false);
+            setAuthRequired(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('Fallback to legacy share token lookup', e);
+        }
+
+        // 2. Fall back to standard share token lookup
         const res = await fetch(`/api/external/shares/${shareToken}`);
         if (!res.ok) {
           throw new Error('Share link is invalid, expired, or was revoked.');
@@ -234,11 +302,15 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!share || !commentText.trim()) return;
+    if ((!share && !secureSession) || !commentText.trim()) return;
 
     setIsSubmittingComment(true);
+    const authorName = secureSession ? secureSession.recipientName : (share?.recipientName || 'External Reviewer');
+    const authorCompany = secureSession ? (secureSession.recipientCompany || 'External Client') : (share?.recipientCompany || '');
+    const docShareId = share ? share.id : (document?.id || 'DOC-DEFAULT');
+
     try {
-      const res = await fetch(`/api/external/documents/${share.id}/comments`, {
+      const res = await fetch(`/api/external/documents/${docShareId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,8 +318,8 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
           pageNumber: currentPage,
           locationAnnotation: commentLocation.trim(),
           commentText: commentText.trim(),
-          authorName: share.recipientName,
-          authorCompany: share.recipientCompany,
+          authorName,
+          authorCompany,
         }),
       });
 
@@ -269,18 +341,21 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
   };
 
   const handleAddReply = async (commentId: string) => {
-    if (!replyText.trim() || !share) return;
+    if (!replyText.trim() || (!share && !secureSession)) return;
 
     setIsSubmittingReply(true);
+    const authorName = secureSession ? secureSession.recipientName : (share?.recipientName || 'External Reviewer');
+    const authorCompany = secureSession ? (secureSession.recipientCompany || 'External Client') : (share?.recipientCompany || '');
+
     try {
       const res = await fetch(`/api/external/comments/${commentId}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: replyText.trim(),
-          authorName: share.recipientName,
+          authorName,
           authorRole: 'external',
-          authorCompany: share.recipientCompany,
+          authorCompany,
         }),
       });
 
@@ -335,16 +410,20 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
     }
   };
 
-  // Prevent copying or right-click if copy permission is disabled
+  // Prevent copying or right-click if copy permission is disabled or secureSession is active
   const handleContextMenu = (e: React.MouseEvent) => {
-    if (!share?.permissions.canCopy) {
+    if (secureSession || !share?.permissions?.canCopy) {
       e.preventDefault();
+      triggerSecurityWarning('Right-click context menu is restricted on this secure document.');
+      reportSecurityViolation('context_menu_attempted');
     }
   };
 
   const handleCopy = (e: React.ClipboardEvent) => {
-    if (!share?.permissions.canCopy) {
+    if (secureSession || !share?.permissions?.canCopy) {
       e.preventDefault();
+      triggerSecurityWarning('Security Block: Clipboard copying is disabled for this protected document.');
+      reportSecurityViolation('copy_attempted');
     }
   };
 
@@ -653,8 +732,78 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
     );
   }
 
-  // 4. Authorized Document Viewer View
-  if (!document || !share) {
+  // 4. Check revocation or expiry for secureSession
+  if (secureSession) {
+    const isExpired = new Date(secureSession.expiresAt).getTime() < Date.now();
+    const isRevoked = secureSession.status === 'revoked';
+
+    if (isRevoked || isExpired) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 space-y-6 text-center">
+            <div
+              className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto shadow-md ${
+                isRevoked
+                  ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                  : 'bg-amber-950 text-amber-400 border border-amber-800'
+              }`}
+            >
+              {isRevoked ? <Lock className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
+            </div>
+
+            <div className="space-y-2">
+              <span
+                className={`text-2xs font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                  isRevoked
+                    ? 'bg-rose-950/60 text-rose-400 border-rose-800'
+                    : 'bg-amber-950/60 text-amber-400 border-amber-800'
+                }`}
+              >
+                {isRevoked ? 'Access Revoked' : 'Access Link Expired'}
+              </span>
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                {isRevoked ? 'Proposal Access Has Been Revoked' : 'Proposal Access Link Expired'}
+              </h1>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
+                {isRevoked
+                  ? `This secure access session (ID: ${secureSession.accessId}) was formally revoked by PJMAK Document Control. If this was unexpected, please contact the PJMAK project team.`
+                  : `This controlled proposal link expired on ${new Date(
+                      secureSession.expiresAt
+                    ).toLocaleString()}. Links are valid for ${secureSession.validityHours} hours.`}
+              </p>
+            </div>
+
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 text-xs text-left space-y-2">
+              <div className="flex justify-between text-slate-400">
+                <span>Intended Recipient:</span>
+                <span className="font-semibold text-slate-200">{secureSession.recipientName}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Recipient Email:</span>
+                <span className="font-mono text-slate-300">{secureSession.recipientEmail}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Access ID:</span>
+                <span className="font-mono text-teal-400">{secureSession.accessId}</span>
+              </div>
+            </div>
+
+            {onExit && (
+              <button
+                onClick={onExit}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-colors"
+              >
+                Close Viewer
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // 5. Authorized Document Viewer View
+  if (!document || (!share && !secureSession)) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-4">
         <AlertTriangle className="w-12 h-12 text-amber-500 mb-2" />
@@ -666,18 +815,42 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
   const activeComments = comments.filter((c) => c.revision === selectedRevision);
 
+  const isProposal = !!(document.chapters && document.chapters.length > 0) || document.documentType === 'PRP';
+  const canCopy = secureSession ? false : (share?.permissions?.canCopy ?? false);
+  const canPrint = secureSession ? false : (share?.permissions?.canPrint ?? false);
+  const canDownload = secureSession ? false : (share?.permissions?.canDownload ?? false);
+  const canComment = secureSession ? true : (share?.permissions?.canComment ?? false);
+
+  const recipientName = secureSession?.recipientName || share?.recipientName || 'External Reviewer';
+  const recipientSub = secureSession?.recipientCompany || share?.recipientCompany || secureSession?.recipientEmail || '';
+
+  const watermarkText = secureSession
+    ? `PJMAK CONFIDENTIAL PROPOSAL • ${secureSession.recipientName} (${secureSession.recipientEmail}) • ID: ${secureSession.accessId} • ${currentTimeDisplay} • RESTRICTED ACCESS`
+    : `PJMAK ENGINEERING • CONTROLLED DOCUMENT • ${share?.recipientName || ''} (${share?.recipientCompany || ''}) • ${currentTimeDisplay} • UNAUTHORIZED DUPLICATION PROHIBITED`;
+
   return (
     <div
       id="pjmak-controlled-viewer"
       onContextMenu={handleContextMenu}
       onCopy={handleCopy}
       className={`min-h-screen bg-slate-900 text-slate-100 flex flex-col ${
-        !share.permissions.canCopy ? 'select-none' : ''
+        !canCopy ? 'select-none' : ''
       }`}
     >
       {/* Inject print blocking style if printing not allowed */}
-      {!share.permissions.canPrint && (
+      {!canPrint && (
         <style dangerouslySetInnerHTML={{ __html: `@media print { body { display: none !important; } }` }} />
+      )}
+
+      {/* Security Alert Toast */}
+      {securityViolationToast && (
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-rose-950/95 border border-rose-500 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center space-x-3 text-xs animate-bounce">
+          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          <div>
+            <span className="font-bold block">Access Security Policy Enforcement</span>
+            <span className="text-2xs text-rose-200">{securityViolationToast}</span>
+          </div>
+        </div>
       )}
 
       {/* Top Security & Navigation Bar */}
@@ -695,7 +868,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 {selectedRevision}
               </span>
               <span className="text-2xs bg-slate-800 text-slate-300 px-1.5 py-0.2 rounded">
-                CONTROLLED COPY
+                {isProposal ? 'CONFIDENTIAL PROPOSAL' : 'CONTROLLED COPY'}
               </span>
             </div>
             <h1 className="text-xs text-slate-300 font-medium truncate max-w-md hidden sm:block">
@@ -706,20 +879,34 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
         {/* Schedule & Reviewer Badge */}
         <div className="flex items-center space-x-3">
-          {/* Active Schedule status */}
-          <div className="hidden md:flex items-center space-x-2 text-2xs bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-300">
-              Active: {share.schedule.dailyStartTime}–{share.schedule.dailyEndTime} ({share.schedule.timeZone})
-            </span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-400">Expires {share.schedule.expiryDate}</span>
-          </div>
+          {/* Active Schedule or Secure Session status */}
+          {secureSession ? (
+            <div className="hidden md:flex items-center space-x-2 text-2xs bg-slate-900 border border-teal-800/80 px-3 py-1.5 rounded-lg">
+              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-teal-300 font-semibold">SECURE ACCESS</span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-400 font-mono">ID: {secureSession.accessId}</span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-400">
+                Expires {new Date(secureSession.expiresAt).toLocaleDateString()}{' '}
+                {new Date(secureSession.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ) : share ? (
+            <div className="hidden md:flex items-center space-x-2 text-2xs bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-slate-300">
+                Active: {share.schedule.dailyStartTime}–{share.schedule.dailyEndTime} ({share.schedule.timeZone})
+              </span>
+              <span className="text-slate-500">|</span>
+              <span className="text-slate-400">Expires {share.schedule.expiryDate}</span>
+            </div>
+          ) : null}
 
           {/* Reviewer identity */}
           <div className="text-right hidden sm:block">
-            <div className="text-xs font-semibold text-slate-200">{share.recipientName}</div>
-            <div className="text-2xs text-slate-400 truncate max-w-[160px]">{share.recipientCompany}</div>
+            <div className="text-xs font-semibold text-slate-200">{recipientName}</div>
+            <div className="text-2xs text-slate-400 truncate max-w-[170px]">{recipientSub}</div>
           </div>
 
           {/* Comments Toggle Button */}
@@ -757,50 +944,106 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
         {/* Document Viewer Canvas Panel */}
         <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden relative">
           {/* Viewer Toolbar */}
-          <div className="h-10 bg-slate-900/95 border-b border-slate-800 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
-            {/* Revision selector (if allowed) */}
-            <div className="flex items-center space-x-2">
-              <span className="text-2xs uppercase tracking-wider text-slate-500">Revision:</span>
-              {share.permissions.allowLaterRevisions && document.revisions.length > 1 ? (
-                <select
-                  value={selectedRevision}
-                  onChange={(e) => setSelectedRevision(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-white"
-                >
-                  {document.revisions.map((r) => (
-                    <option key={r.id} value={r.revision}>
-                      {r.revision} ({r.issueDate}) - {r.reasonForIssue}
-                    </option>
+          <div className="h-11 bg-slate-900/95 border-b border-slate-800 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
+            {/* Revision & Chapters Selector */}
+            <div className="flex items-center space-x-3 overflow-x-auto py-1">
+              <div className="flex items-center space-x-1.5 shrink-0">
+                <span className="text-2xs uppercase tracking-wider text-slate-500 font-mono">Rev:</span>
+                {share?.permissions?.allowLaterRevisions && document.revisions.length > 1 ? (
+                  <select
+                    value={selectedRevision}
+                    onChange={(e) => setSelectedRevision(e.target.value)}
+                    className="bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-white"
+                  >
+                    {document.revisions.map((r) => (
+                      <option key={r.id} value={r.revision}>
+                        {r.revision} ({r.issueDate})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="font-mono font-semibold text-slate-200 bg-slate-800 px-2 py-0.5 rounded text-xs">
+                    {selectedRevision}
+                  </span>
+                )}
+              </div>
+
+              {/* Proposal Chapter Tabs */}
+              {isProposal && (
+                <div className="flex items-center space-x-1 overflow-x-auto">
+                  <span className="text-slate-700 mx-1">|</span>
+                  {[
+                    { num: 1, label: 'Exec Summary' },
+                    { num: 2, label: 'Tech Approach' },
+                    { num: 3, label: 'HSE Compliance' },
+                    { num: 4, label: 'Commercial' },
+                    { num: 5, label: 'Jotform Questionnaire', highlight: true },
+                  ].map((ch) => (
+                    <button
+                      key={ch.num}
+                      onClick={() => setSelectedChapter(ch.num)}
+                      className={`px-2.5 py-1 rounded text-2xs font-medium whitespace-nowrap transition-all flex items-center space-x-1 ${
+                        selectedChapter === ch.num
+                          ? ch.highlight
+                            ? 'bg-teal-500 text-slate-950 font-bold shadow-xs'
+                            : 'bg-teal-600 text-white font-bold shadow-xs'
+                          : ch.highlight
+                          ? 'bg-teal-950 text-teal-300 hover:bg-teal-900 border border-teal-800/80'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>Ch. {ch.num}: {ch.label}</span>
+                    </button>
                   ))}
-                </select>
-              ) : (
-                <span className="font-mono font-semibold text-slate-200 bg-slate-800 px-2 py-0.5 rounded">
-                  {selectedRevision}
-                </span>
+                </div>
               )}
             </div>
 
-            {/* Page & Zoom controls */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-2xs text-slate-300 font-mono">
-                  Sheet {currentPage} of 3
-                </span>
-                <button
-                  disabled={currentPage >= 3}
-                  onClick={() => setCurrentPage((p) => Math.min(3, p + 1))}
-                  className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Chapter Navigation & Zoom controls */}
+            <div className="flex items-center space-x-3 shrink-0">
+              {isProposal ? (
+                <div className="flex items-center space-x-1">
+                  <button
+                    disabled={selectedChapter <= 1}
+                    onClick={() => setSelectedChapter((c) => Math.max(1, c - 1))}
+                    className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
+                    title="Previous Chapter"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-2xs text-slate-300 font-mono">
+                    Chapter {selectedChapter} of 5
+                  </span>
+                  <button
+                    disabled={selectedChapter >= 5}
+                    onClick={() => setSelectedChapter((c) => Math.min(5, c + 1))}
+                    className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
+                    title="Next Chapter"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-1">
+                  <button
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-2xs text-slate-300 font-mono">
+                    Sheet {currentPage} of 3
+                  </span>
+                  <button
+                    disabled={currentPage >= 3}
+                    onClick={() => setCurrentPage((p) => Math.min(3, p + 1))}
+                    className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 text-slate-300"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               <div className="h-4 w-px bg-slate-800" />
 
@@ -821,21 +1064,21 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
 
-            {/* Security restrictions flags */}
-            <div className="hidden lg:flex items-center space-x-3 text-2xs text-slate-500">
-              <span className={share.permissions.canDownload ? 'text-teal-400' : 'text-slate-600 line-through'}>
-                Download Raw
-              </span>
-              <span>•</span>
-              <span className={share.permissions.canPrint ? 'text-teal-400' : 'text-slate-600 line-through'}>
-                Print
-              </span>
-              <span>•</span>
-              <span className={share.permissions.canCopy ? 'text-teal-400' : 'text-slate-600 line-through'}>
-                Clipboard Copy
-              </span>
+              {/* Security restrictions flags */}
+              <div className="hidden lg:flex items-center space-x-2 text-2xs text-slate-500 font-mono">
+                <span className={canDownload ? 'text-teal-400' : 'text-slate-600 line-through'}>
+                  Download
+                </span>
+                <span>•</span>
+                <span className={canPrint ? 'text-teal-400' : 'text-slate-600 line-through'}>
+                  Print
+                </span>
+                <span>•</span>
+                <span className={canCopy ? 'text-teal-400' : 'text-slate-600 line-through'}>
+                  Copy
+                </span>
+              </div>
             </div>
           </div>
 
@@ -848,7 +1091,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 transformOrigin: 'top center',
                 transition: 'transform 0.15s ease-out',
               }}
-              className="w-[920px] min-h-[640px] bg-white text-slate-900 rounded-sm shadow-2xl border border-slate-300 p-8 relative overflow-hidden flex flex-col justify-between"
+              className="w-[960px] min-h-[680px] bg-white text-slate-900 rounded-sm shadow-2xl border border-slate-300 p-8 relative overflow-hidden flex flex-col justify-between"
             >
               {/* DYNAMIC WATERMARK OVERLAY */}
               <div
@@ -858,16 +1101,52 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="transform -rotate-25 whitespace-nowrap text-center text-slate-800 font-mono font-extrabold uppercase text-sm tracking-widest leading-relaxed"
+                    className="transform -rotate-25 whitespace-nowrap text-center text-slate-800 font-mono font-extrabold uppercase text-xs tracking-widest leading-relaxed"
                   >
-                    PJMAK ENGINEERING • CONTROLLED DOCUMENT • {share.recipientName} ({share.recipientCompany}) •{' '}
-                    {currentTimeDisplay} • UNAUTHORIZED DUPLICATION PROHIBITED
+                    {watermarkText}
                   </div>
                 ))}
               </div>
 
-              {/* SHEET CONTENT: Title Block & Engineering Technical Drawing */}
-              <div className="relative z-10 space-y-6">
+              {/* SHEET CONTENT: Either Multi-Chapter Proposal Content OR Technical CAD Drawing */}
+              {isProposal ? (
+                <div className="relative z-10 space-y-6">
+                  {/* Proposal Header Block */}
+                  <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
+                    <div>
+                      <div className="text-xl font-bold text-slate-950 tracking-wider font-mono">
+                        PJMAK PROCESS & ENERGY ENGINEERING
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Project: <span className="font-semibold text-slate-900">{document.projectName} ({document.projectCode})</span>
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Client: <span className="font-semibold text-slate-900">{document.clientCompany}</span>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono">
+                      <div className="text-xs text-slate-500 uppercase">Tender Proposal Reference</div>
+                      <div className="text-base font-bold text-slate-950">{document.documentNumber}</div>
+                      <div className="text-xs font-semibold text-teal-800">
+                        Revision: {selectedRevision} | Chapter {selectedChapter} of 5
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multi-Chapter Proposal Body */}
+                  <SecureProposalContent
+                    document={document}
+                    currentChapter={selectedChapter}
+                    onSelectChapter={setSelectedChapter}
+                    watermarkText={watermarkText}
+                    secureSession={secureSession}
+                    onSecurityEvent={reportSecurityViolation}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Standard Technical Drawing / Engineering Specification */}
+                  <div className="relative z-10 space-y-6">
                 {/* Engineering Title Header */}
                 <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
                   <div>
@@ -1055,9 +1334,11 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
+      </div>
+    </div>
 
         {/* Right Sidebar: Review Comments & Revision Threads */}
         {showCommentsDrawer && (
@@ -1077,7 +1358,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 </span>
               </div>
 
-              {share.permissions.canComment && (
+              {canComment && (
                 <button
                   id="open-add-comment-btn"
                   onClick={() => setIsAddingComment(!isAddingComment)}
@@ -1152,7 +1433,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 <div className="text-center py-12 text-slate-500 space-y-2">
                   <MessageSquare className="w-8 h-8 mx-auto opacity-30" />
                   <p className="text-xs">No comments recorded for {selectedRevision}.</p>
-                  {share.permissions.canComment && (
+                  {canComment && (
                     <button
                       onClick={() => setIsAddingComment(true)}
                       className="text-xs text-teal-400 hover:underline"
@@ -1186,7 +1467,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                             : 'bg-amber-950 text-amber-400 border border-amber-800'
                         }`}
                       >
-                        {cmt.status.replace('_', ' ')}
+                        {(cmt.status || 'open').replace('_', ' ')}
                       </span>
                     </div>
 

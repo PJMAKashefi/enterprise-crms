@@ -18,6 +18,7 @@ import {
   DocumentShare,
   DocumentComment,
   ExternalAccessAuditLog,
+  ExternalAccessSession,
 } from '../src/types';
 
 interface DatabaseSchema {
@@ -49,6 +50,7 @@ interface DatabaseSchema {
   documentShares: DocumentShare[];
   documentComments: DocumentComment[];
   externalAuditLogs: ExternalAccessAuditLog[];
+  externalAccessSessions: ExternalAccessSession[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -56,6 +58,111 @@ const DB_FILE = path.join(DATA_DIR, 'correspondence_db.json');
 
 // In-memory cache synced with disk
 let db: DatabaseSchema;
+
+export const INITIAL_CONFIDENTIAL_PROPOSAL: TechnicalDocument = {
+  id: 'doc-prop-001',
+  documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+  title: 'Confidential Commercial & Technical Proposal — Offshore Subsea Export Cable Engineering, Pull-in & Protection Services',
+  description: 'Confidential technical methodology, dynamic riser simulation, pull-in engineering execution, HSE DNV-ST-N001 compliance, milestone pricing schedule, and client acceptance questionnaire for North Sea Grid Connection.',
+  discipline: 'COM',
+  documentType: 'PRP',
+  originator: 'PJMAK',
+  sequenceNumber: 1,
+  projectCode: 'PRJ26',
+  projectName: 'North Sea Wind Export Cable Grid Connection (Hub 4)',
+  clientCompany: 'Offshore Energy Operator',
+  clientContactPerson: 'Marcus Van Dijk',
+  clientEmail: 'm.vandijk@energy-operator.eu',
+  createdByUserId: 'usr-admin-1',
+  createdByUserName: 'Ali Kashefi',
+  currentRevision: 'Rev 0',
+  revisionDate: '2026-09-15',
+  reasonForIssue: 'Confidential Commercial & Technical Proposal for Client Evaluation',
+  reviewStatus: 'under_review',
+  commercialValue: 485000,
+  currency: 'EUR',
+  costCode: 'CC-PRP-2026-01',
+  revenueCode: 'REV-PRP-001',
+  contractNumber: '', // Proposal has no contract number - kept blank
+  confidentiality: 'confidential',
+  frontPageConfig: {
+    showPage1ControlSheet: true,
+    showPage2CoverSheet: true,
+    showPage3RevisionHoldPoints: true,
+    showContractNumber: false,
+    showPoNumber: false,
+    showClientDocNumber: true,
+    showScopeOfWorks: true,
+    showGraphicBanner: true,
+    showHoldPoints: true,
+    showRevisionHistory: true,
+    showMilestone: true,
+  },
+  signOffTeam: [
+    { id: 'so-1', role: 'initiated', name: 'Ali Kashefi', position: 'Lead Author', company: 'PJMAK', date: '2026-09-15', digitalId: '#PJMAK-01', status: 'signed' },
+    { id: 'so-2', role: 'checked', name: 'Technical Lead', position: 'Discipline Lead Engineer', company: 'PJMAK', date: '2026-09-16', digitalId: '#PJMAK-02', status: 'verified' },
+    { id: 'so-3', role: 'verified', name: 'QA Coordinator', position: 'QA/QC Manager', company: 'PJMAK', date: '2026-09-17', digitalId: '#PJMAK-03', status: 'verified' },
+    { id: 'so-4', role: 'approved', name: 'Ali Kashefi', position: 'Managing Director', company: 'PJMAK', date: '2026-09-18', digitalId: '#PJMAK-04', status: 'approved' },
+  ],
+  revisions: [
+    {
+      revision: 'Rev 0',
+      date: '2026-09-15',
+      reasonForIssue: 'Issued for Client Commercial & Technical Review',
+      reviewStatus: 'under_review',
+      dccUserId: 'usr-admin-1',
+      dccUserName: 'Ali Kashefi',
+      checkedByName: 'Technical Lead',
+      checkedByPosition: 'Discipline Lead Engineer',
+      approvedByName: 'Ali Kashefi',
+      approvedByPosition: 'Managing Director',
+      wordCount: 4120,
+      pageCount: 5,
+    },
+  ],
+  chapters: [
+    {
+      id: 'ch-1',
+      number: 1,
+      title: 'Chapter 1: Executive Summary & Corporate Qualifications',
+      content:
+        'PJMAK Company is pleased to present this comprehensive Technical and Commercial Proposal to the Client Evaluation Committee for the turnkey engineering, simulation, pull-in execution, and pre-commissioning of the 220kV HVAC Subsea Export Cable System.\n\nKey Highlights:\n• Proven methodology for North Sea dynamic seabed and trenching conditions.\n• Turnkey engineering package including dynamic riser analyses, pull-in winch sizing, and route bathymetry surveys.\n• ISO 9001, ISO 14001, and DNV-ST-N001 certified execution framework.\n• Fixed-price commercial commitment of EUR 485,000 covering all primary engineering, vessel interface verification, and mobilization phases.',
+    },
+    {
+      id: 'ch-2',
+      number: 2,
+      title: 'Chapter 2: Scope of Work & Subsea Technical Methodology',
+      content:
+        '2.1 Cable Route Optimization & Metocean Assessment:\nDetailed analysis of seabed geotechnical conditions, sand wave mobility, and hydrodynamic drag coefficients.\n\n2.2 Subsea Pull-In & J-Tube Interface Engineering:\nRigging calculation, hold-back winch tensions, bellmouth entrance geometry, and seal assembly validation in accordance with client platform specifications.\n\n2.3 Dynamic Cable Protection System (CPS) Installation Plan:\nPolyurethane split-pipe articulated protectors and concrete mattress placement sequence at touchdown zones.\n\n2.4 Post-Lay Inspection & Remote ROV Survey Validation:\nMultibeam echosounder (MBES) verification and depth-of-lowering (DOL) acoustic survey protocol.',
+    },
+    {
+      id: 'ch-3',
+      number: 3,
+      title: 'Chapter 3: HSE, Environmental Management & DNV Compliance',
+      content:
+        '3.1 Zero-Harm Marine Environmental Charter:\nStrict adherence to North Sea maritime environmental directives, acoustic mammal monitoring during vessel positioning, and zero marine discharge.\n\n3.2 Risk Assessments (HAZID & HAZOP Protocol):\nFull hazard identification sessions covering vessel craneage, diver/ROV intervention, weather window limitations, and emergency cable abandonment procedures.\n\n3.3 DNV-ST-N001 Marine Operations Compliance:\nThird-party Marine Warranty Surveyor (MWS) certificate of approval will be coordinated for all seafastening and offshore rigging packages.',
+    },
+    {
+      id: 'ch-4',
+      number: 4,
+      title: 'Chapter 4: Commercial Pricing Breakdown & Milestone Schedule',
+      content:
+        'Commercial Schedule (Fixed-Fee Engineering & Operational Supervision):\n\n• Milestone 1: Mobilization & Detailed Route Engineering — EUR 120,000 (Month 1)\n• Milestone 2: Pull-In Spread Deployment & J-Tube Operations — EUR 215,000 (Month 2)\n• Milestone 3: Fiber-Optic & High-Voltage Testing & Pre-Commissioning — EUR 150,000 (Month 3)\n\nTotal Contract Value: EUR 485,000 net.\nPayment Terms: Net 30 days upon submission of milestone acceptance certificate.\nValidity: 60 calendar days from date of issuance.',
+    },
+    {
+      id: 'ch-5',
+      number: 5,
+      title: 'Chapter 5: Clarifications, Commercial Acceptance & Questionnaire',
+      questionnaireUrl: 'https://form.jotform.com/242500000000000',
+      content:
+        'To complete the formal evaluation and commercial alignment for this proposal, please complete the official client evaluation questionnaire.\n\nThe questionnaire enables your engineering and procurement teams to confirm technical parameters, cable specifications, vessel availability windows, and formal commercial clarifications directly.\n\nPlease click "Open Questionnaire" below to access the secure form.',
+    },
+  ],
+  linkedCorrespondenceIds: [],
+  linkedCorrespondenceNumbers: [],
+  createdAt: '2026-09-15T09:00:00.000Z',
+  updatedAt: '2026-09-15T09:00:00.000Z',
+};
 
 function getInitialData(): DatabaseSchema {
   const users: User[] = [
@@ -253,7 +360,7 @@ function getInitialData(): DatabaseSchema {
     },
   ];
 
-  const technicalDocuments: TechnicalDocument[] = [];
+  const technicalDocuments: TechnicalDocument[] = [INITIAL_CONFIDENTIAL_PROPOSAL];
 
   const emailTemplates: EmailTemplateItem[] = [
     {
@@ -353,10 +460,10 @@ function getInitialData(): DatabaseSchema {
       {
         id: 'share-sample-1',
         shareToken: 'token-npc-mec-dwg-4921',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        documentTitle: 'Atmospheric Storage Tank General Assembly & Nozzle Schedule',
-        selectedRevision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        documentTitle: 'Turnkey Pipeline System Engineering & Construction Commercial & Technical Proposal',
+        selectedRevision: 'Rev 0',
         externalUserId: 'ext-usr-1',
         recipientName: 'Eng. Reza Mohammadi',
         recipientCompany: 'National Petrochemical Co. (NPC)',
@@ -398,12 +505,12 @@ function getInitialData(): DatabaseSchema {
       {
         id: 'cmt-sample-1',
         shareId: 'share-sample-1',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        revision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        revision: 'Rev 0',
         pageNumber: 2,
-        locationAnnotation: 'Section B-B, Nozzle N3 Flange Rating',
-        commentText: 'Please verify if the flange rating for Nozzle N3 meets ASME B16.5 Class 300 requirement for high-temperature sour water service.',
+        locationAnnotation: 'Section 2.1, Scope of Services & Commercial Schedule',
+        commentText: 'Please verify the delivery timeline and commercial milestones in Section 2.1 for compliance with tender requirements.',
         authorId: 'ext-usr-1',
         authorName: 'Eng. Reza Mohammadi',
         authorEmail: 'r.mohammadi@npc-iran.ir',
@@ -418,9 +525,9 @@ function getInitialData(): DatabaseSchema {
       {
         id: 'ext-log-1',
         shareId: 'share-sample-1',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        revision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        revision: 'Rev 0',
         externalUserId: 'ext-usr-1',
         externalUserName: 'Eng. Reza Mohammadi',
         externalUserCompany: 'National Petrochemical Co. (NPC)',
@@ -430,14 +537,14 @@ function getInitialData(): DatabaseSchema {
         eventType: 'invitation_created',
         timestamp: '2026-09-12T08:30:00.000Z',
         result: 'success',
-        details: 'Shared PRJ-PJMAK-MEC-DWG-0001 (Rev A) with Eng. Reza Mohammadi under controlled schedule Mon-Fri 08:30-17:30',
+        details: 'Shared PRJ26-PJMAK-COM-PRP-001 (Rev 0) with Eng. Reza Mohammadi under controlled schedule Mon-Fri 08:30-17:30',
       },
       {
         id: 'ext-log-2',
         shareId: 'share-sample-1',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        revision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        revision: 'Rev 0',
         externalUserId: 'ext-usr-1',
         externalUserName: 'Eng. Reza Mohammadi',
         externalUserCompany: 'National Petrochemical Co. (NPC)',
@@ -450,9 +557,9 @@ function getInitialData(): DatabaseSchema {
       {
         id: 'ext-log-3',
         shareId: 'share-sample-1',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        revision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        revision: 'Rev 0',
         externalUserId: 'ext-usr-1',
         externalUserName: 'Eng. Reza Mohammadi',
         externalUserCompany: 'National Petrochemical Co. (NPC)',
@@ -460,14 +567,14 @@ function getInitialData(): DatabaseSchema {
         eventType: 'document_opened',
         timestamp: '2026-09-14T09:16:00.000Z',
         result: 'allowed',
-        details: 'Opened Controlled Document Viewer for Rev A with dynamic watermark overlay',
+        details: 'Opened Controlled Document Viewer for Rev 0 with dynamic watermark overlay',
       },
       {
         id: 'ext-log-4',
         shareId: 'share-sample-1',
-        documentId: 'doc-mec-001',
-        documentNumber: 'PRJ-PJMAK-MEC-DWG-0001',
-        revision: 'Rev A',
+        documentId: 'doc-initial-prop-001',
+        documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+        revision: 'Rev 0',
         externalUserId: 'ext-usr-1',
         externalUserName: 'Eng. Reza Mohammadi',
         externalUserCompany: 'National Petrochemical Co. (NPC)',
@@ -475,9 +582,10 @@ function getInitialData(): DatabaseSchema {
         eventType: 'comment_created',
         timestamp: '2026-09-14T09:30:00.000Z',
         result: 'success',
-        details: 'Added review comment on Section B-B, Nozzle N3 Flange Rating (Page 2)',
+        details: 'Added review comment on Section 2.1 Commercial Milestones',
       },
     ],
+    externalAccessSessions: [],
   };
 }
 
@@ -534,6 +642,13 @@ export function initDatabase(): DatabaseSchema {
         );
       } else {
         db.technicalDocuments = [];
+      }
+      // Ensure the confidential commercial & technical proposal exists for external viewing & sharing
+      if (!db.technicalDocuments.some((d) => d.documentNumber === 'PRJ26-PJMAK-COM-PRP-001')) {
+        db.technicalDocuments.unshift(INITIAL_CONFIDENTIAL_PROPOSAL);
+      }
+      if (!db.externalAccessSessions) {
+        db.externalAccessSessions = [];
       }
       if (db.documentShares) {
         db.documentShares = db.documentShares.filter(

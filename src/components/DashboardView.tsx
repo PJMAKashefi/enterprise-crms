@@ -690,7 +690,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       item.status
                     )}`}
                   >
-                    {item.status.replace(/_/g, ' ')}
+                    {(item.status || 'draft').replace(/_/g, ' ')}
                   </span>
                   <button
                     type="button"
@@ -756,10 +756,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <div className="flex items-start md:items-center gap-3 min-w-0">
                   <span className="font-mono text-[10px] text-slate-400 shrink-0">
-                    {log.timestamp.replace('T', ' ').slice(0, 19)}
+                    {log.timestamp ? log.timestamp.replace('T', ' ').slice(0, 19) : ''}
                   </span>
                   <span className="font-semibold text-blue-950 capitalize shrink-0">
-                    {log.action.replace(/_/g, ' ')}
+                    {(log.action || '').replace(/_/g, ' ')}
                   </span>
                   <span className="text-slate-600 truncate">
                     Ref: <strong className="font-mono text-slate-800">{log.targetEntityId}</strong>
@@ -835,10 +835,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div key={log.id} className="p-3 hover:bg-slate-50 rounded-lg text-xs space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-slate-900 capitalize">
-                        {log.action.replace(/_/g, ' ')}
+                        {(log.action || '').replace(/_/g, ' ')}
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        {log.timestamp.replace('T', ' ').slice(0, 19)}
+                        {log.timestamp ? log.timestamp.replace('T', ' ').slice(0, 19) : ''}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-500 text-[11px]">

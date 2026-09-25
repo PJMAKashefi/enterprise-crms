@@ -46,11 +46,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const matchingDocuments = technicalDocuments.filter((d) => {
     if (!q) return true;
     return (
-      d.documentNumber.toLowerCase().includes(q) ||
-      d.title.toLowerCase().includes(q) ||
-      d.discipline.toLowerCase().includes(q) ||
-      d.projectCode.toLowerCase().includes(q) ||
-      (d.linkedCorrespondenceNumber && d.linkedCorrespondenceNumber.toLowerCase().includes(q))
+      (d.documentNumber && d.documentNumber.toLowerCase().includes(q)) ||
+      (d.title && d.title.toLowerCase().includes(q)) ||
+      (d.discipline && d.discipline.toLowerCase().includes(q)) ||
+      (d.projectCode && d.projectCode.toLowerCase().includes(q)) ||
+      (d.linkedCorrespondenceNumbers && d.linkedCorrespondenceNumbers.some((num) => num.toLowerCase().includes(q))) ||
+      ((d as any).linkedCorrespondenceNumber && (d as any).linkedCorrespondenceNumber.toLowerCase().includes(q))
     );
   });
 
@@ -228,7 +229,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             {doc.documentNumber}
                           </span>
                           <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-amber-100 text-amber-900 font-bold">
-                            Rev {doc.revision}
+                            Rev {doc.currentRevision || (doc as any).revision || doc.revisions?.[0]?.revision || '0'}
                           </span>
                           <span className="text-[10px] text-slate-400">
                             {doc.discipline}
@@ -238,7 +239,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           {doc.title}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          Status: {doc.status.replace(/_/g, ' ')} • Project: {doc.projectCode}
+                          Status: {(doc.reviewStatus || (doc as any).status || 'under_review').replace(/_/g, ' ')} • Project: {doc.projectCode}
                         </div>
                       </div>
                     </div>

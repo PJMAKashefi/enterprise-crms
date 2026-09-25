@@ -28,6 +28,7 @@ import {
   ExtensionRequest,
   CommentReply,
   ExternalAuditEventType,
+  ExternalAccessSession,
 } from '../src/types';
 import { evaluateAccessSchedule } from './accessControl';
 import crypto from 'crypto';
@@ -4006,6 +4007,365 @@ apiRouter.get('/external-audit-logs', (req: Request, res: Response) => {
 apiRouter.get('/external-users', (req: Request, res: Response) => {
   const db = getDb();
   res.json(db.externalUsers || []);
+});
+
+// ============================================================================
+// SECURE EXTERNAL PROPOSAL VIEWER (DEDICATED EXTERNAL ACCESS LAYER)
+// ============================================================================
+
+// 1. Create External Access Session for a Proposal/Document
+apiRouter.post('/external-access', (req: Request, res: Response) => {
+  const db = getDb();
+  const currentUser = getCurrentUser();
+  const {
+    documentId,
+    recipientName,
+    recipientEmail,
+    recipientCompany,
+    selectedRevision,
+    durationHours = 48,
+    notes,
+  } = req.body;
+
+  if (!documentId) {
+    return res.status(400).json({ error: 'Document ID is required.' });
+  }
+  if (!recipientName || !recipientName.trim()) {
+    return res.status(400).json({ error: 'Recipient name is required.' });
+  }
+  if (!recipientEmail || !recipientEmail.trim()) {
+    return res.status(400).json({ error: 'Recipient email is required.' });
+  }
+
+  const doc = (db.technicalDocuments || []).find((d) => d.id === documentId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Technical document not found in EDMS.' });
+  }
+
+  if (!db.externalAccessSessions) {
+    db.externalAccessSessions = [];
+  }
+
+  const token = `ext-sec-${crypto.randomBytes(24).toString('hex')}`;
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const accessId = `ACC-${doc.documentType || 'PRP'}-${randomSuffix}`;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + Number(durationHours) * 60 * 60 * 1000).toISOString();
+
+  const session: ExternalAccessSession = {
+    id: `sess-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    token,
+    accessId,
+    documentId: doc.id,
+    documentNumber: doc.documentNumber,
+    documentTitle: doc.title,
+    selectedRevision: selectedRevision || doc.currentRevision || 'Rev 0',
+    recipientName: recipientName.trim(),
+    recipientEmail: recipientEmail.trim().toLowerCase(),
+    recipientCompany: recipientCompany ? recipientCompany.trim() : doc.clientCompany || 'Client Organization',
+    createdAt: now.toISOString(),
+    expiresAt,
+    durationHours: Number(durationHours),
+    status: 'active',
+    accessCount: 0,
+    createdByUserId: currentUser?.id || 'usr-admin-1',
+    createdByUserName: currentUser?.name || 'Ali Kashefi',
+    notes: notes?.trim() || undefined,
+  };
+
+  db.externalAccessSessions.unshift(session);
+
+  recordExternalAuditLog({
+    shareId: session.id,
+    documentId: doc.id,
+    documentNumber: doc.documentNumber,
+    revision: doc.currentRevision || 'Rev 0',
+    externalUserName: session.recipientName,
+    externalUserCompany: session.recipientCompany,
+    performedByUserId: currentUser?.id,
+    performedByUserName: currentUser?.name,
+    actorType: 'internal',
+    eventType: 'access_created',
+    result: 'success',
+    details: `Created secure external access link for ${session.recipientName} (${session.recipientEmail}). Valid for ${session.durationHours}h until ${new Date(expiresAt).toUTCString()}. Access ID: ${session.accessId}`,
+  });
+
+  saveDatabase();
+
+  const host = req.get('host') || 'localhost:3000';
+  const protocol = req.protocol || 'http';
+  const secureAccessUrl = `${protocol}://${host}?ext_access_token=${session.token}`;
+
+  res.status(201).json({
+    success: true,
+    session,
+    secureAccessUrl,
+  });
+});
+
+// 2. Fetch External Access Session & Proposal Data (Client-facing secure viewer)
+apiRouter.get('/external-access/:token', (req: Request, res: Response) => {
+  const db = getDb();
+  const token = req.params.token;
+
+  if (!db.externalAccessSessions) {
+    db.externalAccessSessions = [];
+  }
+
+  const session = db.externalAccessSessions.find((s) => s.token === token);
+
+  if (!session) {
+    recordExternalAuditLog({
+      shareId: 'unknown',
+      documentId: 'unknown',
+      documentNumber: 'UNKNOWN',
+      revision: 'Rev 0',
+      externalUserName: 'Unknown Visitor',
+      externalUserCompany: 'Unknown',
+      actorType: 'external',
+      eventType: 'failed_access_attempt',
+      result: 'denied',
+      details: `Invalid or non-existent token provided: ${token.slice(0, 8)}...`,
+    });
+    saveDatabase();
+    return res.status(404).json({
+      error: 'Invalid or non-existent secure access link. Please request an authorized link from PJMAK Document Control.',
+      status: 'not_found',
+    });
+  }
+
+  // Check if revoked
+  if (session.status === 'revoked') {
+    recordExternalAuditLog({
+      shareId: session.id,
+      documentId: session.documentId,
+      documentNumber: session.documentNumber,
+      revision: 'Rev 0',
+      externalUserName: session.recipientName,
+      externalUserCompany: session.recipientCompany,
+      actorType: 'external',
+      eventType: 'failed_access_attempt',
+      result: 'denied',
+      details: `Blocked attempt to access revoked session ${session.accessId} by ${session.recipientName} (${session.recipientEmail}). Revoked at: ${session.revokedAt}`,
+    });
+    saveDatabase();
+    return res.status(403).json({
+      error: 'This secure access link has been revoked by PJMAK Document Control.',
+      status: 'revoked',
+      session: {
+        accessId: session.accessId,
+        recipientName: session.recipientName,
+        recipientCompany: session.recipientCompany,
+        documentTitle: session.documentTitle,
+        documentNumber: session.documentNumber,
+        revokedAt: session.revokedAt,
+        revocationReason: session.revocationReason,
+      },
+    });
+  }
+
+  // Check if expired
+  const now = Date.now();
+  const expiryTime = new Date(session.expiresAt).getTime();
+
+  if (now > expiryTime || session.status === 'expired') {
+    session.status = 'expired';
+    recordExternalAuditLog({
+      shareId: session.id,
+      documentId: session.documentId,
+      documentNumber: session.documentNumber,
+      revision: 'Rev 0',
+      externalUserName: session.recipientName,
+      externalUserCompany: session.recipientCompany,
+      actorType: 'external',
+      eventType: 'access_expired',
+      result: 'denied',
+      details: `Blocked attempt to access expired session ${session.accessId}. Expired at: ${session.expiresAt}`,
+    });
+    saveDatabase();
+    return res.status(410).json({
+      error: `This secure access session expired on ${new Date(session.expiresAt).toUTCString()} after its ${session.durationHours}-hour access window. Please contact PJMAK Document Control for a renewed access link.`,
+      status: 'expired',
+      session: {
+        accessId: session.accessId,
+        recipientName: session.recipientName,
+        recipientCompany: session.recipientCompany,
+        documentTitle: session.documentTitle,
+        documentNumber: session.documentNumber,
+        expiresAt: session.expiresAt,
+      },
+    });
+  }
+
+  // Active session! Update access metrics
+  session.accessCount = (session.accessCount || 0) + 1;
+  const isFirstOpen = !session.firstOpenedAt;
+  if (isFirstOpen) {
+    session.firstOpenedAt = new Date().toISOString();
+  }
+  session.lastOpenedAt = new Date().toISOString();
+
+  // Audit log
+  recordExternalAuditLog({
+    shareId: session.id,
+    documentId: session.documentId,
+    documentNumber: session.documentNumber,
+    revision: 'Rev 0',
+    externalUserName: session.recipientName,
+    externalUserCompany: session.recipientCompany,
+    actorType: 'external',
+    eventType: isFirstOpen ? 'first_opened' : 'subsequent_access',
+    result: 'success',
+    details: `${isFirstOpen ? 'First access' : `Access #${session.accessCount}`} to proposal by ${session.recipientName} (${session.recipientEmail}). Access ID: ${session.accessId}`,
+  });
+
+  saveDatabase();
+
+  // Fetch document
+  const doc = (db.technicalDocuments || []).find((d) => d.id === session.documentId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Referenced technical document not found in EDMS.' });
+  }
+
+  // Return clean viewer payload
+  res.json({
+    status: 'active',
+    session: {
+      id: session.id,
+      token: session.token,
+      accessId: session.accessId,
+      recipientName: session.recipientName,
+      recipientEmail: session.recipientEmail,
+      recipientCompany: session.recipientCompany,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+      durationHours: session.durationHours,
+      accessCount: session.accessCount,
+      firstOpenedAt: session.firstOpenedAt,
+    },
+    document: {
+      id: doc.id,
+      documentNumber: doc.documentNumber,
+      title: doc.title,
+      description: doc.description,
+      discipline: doc.discipline,
+      documentType: doc.documentType,
+      originator: doc.originator,
+      projectCode: doc.projectCode,
+      projectName: doc.projectName,
+      clientCompany: doc.clientCompany,
+      clientContactPerson: doc.clientContactPerson,
+      currentRevision: doc.currentRevision,
+      revisionDate: doc.revisionDate,
+      commercialValue: doc.commercialValue,
+      currency: doc.currency,
+      chapters: doc.chapters || [],
+    },
+  });
+});
+
+// 3. Revoke External Access Link (Internal User)
+apiRouter.post('/external-access/:token/revoke', (req: Request, res: Response) => {
+  const db = getDb();
+  const currentUser = getCurrentUser();
+  const token = req.params.token;
+  const { reason } = req.body;
+
+  if (!db.externalAccessSessions) {
+    db.externalAccessSessions = [];
+  }
+
+  // Find by token or id or accessId
+  const session = db.externalAccessSessions.find((s) => s.token === token || s.id === token || s.accessId === token);
+
+  if (!session) {
+    return res.status(404).json({ error: 'External access session not found.' });
+  }
+
+  session.status = 'revoked';
+  session.revokedAt = new Date().toISOString();
+  session.revocationReason = reason?.trim() || 'Revoked by PJMAK Document Control';
+  session.revokedByUserId = currentUser?.id;
+  session.revokedByUserName = currentUser?.name;
+
+  recordExternalAuditLog({
+    shareId: session.id,
+    documentId: session.documentId,
+    documentNumber: session.documentNumber,
+    revision: 'Rev 0',
+    externalUserName: session.recipientName,
+    externalUserCompany: session.recipientCompany,
+    performedByUserId: currentUser?.id,
+    performedByUserName: currentUser?.name,
+    actorType: 'internal',
+    eventType: 'access_revoked',
+    result: 'success',
+    details: `Revoked external access ${session.accessId} for ${session.recipientName}. Reason: "${session.revocationReason}"`,
+  });
+
+  saveDatabase();
+
+  res.json({ success: true, session });
+});
+
+// 4. Record Security Violation / Attempt from External Viewer
+apiRouter.post('/external-access/:token/security-event', (req: Request, res: Response) => {
+  const db = getDb();
+  const token = req.params.token;
+  const { eventType, details } = req.body;
+
+  if (!db.externalAccessSessions) db.externalAccessSessions = [];
+  const session = db.externalAccessSessions.find((s) => s.token === token);
+
+  if (session) {
+    recordExternalAuditLog({
+      shareId: session.id,
+      documentId: session.documentId,
+      documentNumber: session.documentNumber,
+      revision: 'Rev 0',
+      externalUserName: session.recipientName,
+      externalUserCompany: session.recipientCompany,
+      actorType: 'external',
+      eventType: eventType || 'print_attempted',
+      result: 'denied',
+      details: details || `Security violation intercepted on secure viewer for ${session.accessId}`,
+    });
+    saveDatabase();
+  }
+
+  res.json({ success: true });
+});
+
+// 5. Query External Access Sessions for a specific document
+apiRouter.get('/external-access/document/:documentId', (req: Request, res: Response) => {
+  const db = getDb();
+  if (!db.externalAccessSessions) db.externalAccessSessions = [];
+
+  const now = Date.now();
+  // Auto update expired
+  db.externalAccessSessions.forEach((s) => {
+    if (s.status === 'active' && now > new Date(s.expiresAt).getTime()) {
+      s.status = 'expired';
+    }
+  });
+
+  const sessions = db.externalAccessSessions.filter((s) => s.documentId === req.params.documentId);
+  res.json({ sessions });
+});
+
+// 6. Query all external access sessions
+apiRouter.get('/external-access-sessions', (req: Request, res: Response) => {
+  const db = getDb();
+  if (!db.externalAccessSessions) db.externalAccessSessions = [];
+
+  const now = Date.now();
+  db.externalAccessSessions.forEach((s) => {
+    if (s.status === 'active' && now > new Date(s.expiresAt).getTime()) {
+      s.status = 'expired';
+    }
+  });
+
+  res.json(db.externalAccessSessions);
 });
 
 

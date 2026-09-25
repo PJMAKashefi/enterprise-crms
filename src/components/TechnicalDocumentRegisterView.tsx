@@ -172,18 +172,18 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     title: '',
     description: '',
     documentMode: 'generated' as 'generated' | 'received',
-    documentScope: 'Boskalis Offshore Export Cable Installation',
-    clientDocumentNumber: '02488566',
-    clientRevisionCode: 'C',
+    documentScope: '',
+    clientDocumentNumber: '',
+    clientRevisionCode: '0',
     contractorDocumentNumber: '',
     contractorRevisionNo: '0',
-    poNumber: 'P0036341',
-    rdsPpCode: '#HOW02=X01AAD12WB002-WB001&CDB',
+    poNumber: '',
+    rdsPpCode: '',
     projectCode: 'PRJ-2026-01',
-    projectName: 'Hornsea Two Export Cable Installation',
-    clientCompany: 'Ørsted Wind Power',
-    clientContactPerson: 'Eng. Anders Lind',
-    clientEmail: 'a.lind@orsted.com',
+    projectName: 'Engineering Project',
+    clientCompany: '',
+    clientContactPerson: '',
+    clientEmail: '',
     discipline: 'TEC' as DocumentDiscipline,
     documentType: 'PRP' as DocumentTypeCode,
     originator: 'PJMAK',
@@ -193,10 +193,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     milestoneStage: 'tender_bidding' as DocumentMilestone,
     commercialValue: '',
     currency: 'USD',
-    costCode: 'CC-ORS-2026',
-    revenueCode: 'REV-ORS-001',
+    costCode: '',
+    revenueCode: '',
     proformaInvoiceNumber: '',
-    contractNumber: '0049',
+    contractNumber: '', // Blank by default, especially for proposals
     supplierName: '',
     transmittalLetterNumber: '',
   });
@@ -503,16 +503,16 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
 
     const rows = filteredDocs.map((doc) => [
       `"${doc.documentNumber}"`,
-      `"${doc.title.replace(/"/g, '""')}"`,
+      `"${(doc.title || '').replace(/"/g, '""')}"`,
       doc.discipline,
       doc.documentType,
       doc.currentRevision,
       doc.revisionDate,
       doc.reviewStatus,
-      `"${doc.reasonForIssue.replace(/"/g, '""')}"`,
+      `"${(doc.reasonForIssue || '').replace(/"/g, '""')}"`,
       doc.projectCode,
-      `"${doc.projectName.replace(/"/g, '""')}"`,
-      `"${doc.clientCompany.replace(/"/g, '""')}"`,
+      `"${(doc.projectName || '').replace(/"/g, '""')}"`,
+      `"${(doc.clientCompany || '').replace(/"/g, '""')}"`,
       doc.commercialValue || '',
       doc.currency,
       doc.costCode || '',
@@ -930,7 +930,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                         </div>
                       )}
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400">
-                        <span>Milestone: <strong className="text-slate-600">{doc.milestoneStage.replace('_', ' ')}</strong></span>
+                        <span>Milestone: <strong className="text-slate-600">{doc.milestoneStage ? doc.milestoneStage.replace('_', ' ') : 'General'}</strong></span>
                         {doc.drawingSheetNumber && (
                           <span>• Sheet: <strong className="text-slate-600">{doc.drawingSheetNumber}</strong></span>
                         )}
@@ -1198,17 +1198,19 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
               >
                 Overview & Scope
               </button>
-              <button
-                onClick={() => setInspectorTab('cad')}
-                className={`py-3 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  inspectorTab === 'cad'
-                    ? 'border-blue-900 text-blue-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Maximize2 className="h-3.5 w-3.5 text-blue-700" />
-                <span>CAD Vector Drawing</span>
-              </button>
+              {selectedDoc.documentType === 'DWG' && (
+                <button
+                  onClick={() => setInspectorTab('cad')}
+                  className={`py-3 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    inspectorTab === 'cad'
+                      ? 'border-blue-900 text-blue-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Maximize2 className="h-3.5 w-3.5 text-blue-700" />
+                  <span>CAD Vector Drawing</span>
+                </button>
+              )}
               <button
                 onClick={() => setInspectorTab('revisions')}
                 className={`py-3 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -1332,30 +1334,118 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                     </div>
                   </div>
 
-                  {/* Quick CAD Preview Teaser */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 text-xs">Engineering CAD Schematic</span>
-                      <button
+                  {/* Document Dossier & Content Preview (or CAD schematic if explicitly a DWG drawing) */}
+                  {selectedDoc.documentType === 'DWG' ? (
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 text-xs">Engineering CAD Schematic</span>
+                        <button
+                          onClick={() => setInspectorTab('cad')}
+                          className="text-blue-900 font-bold text-xs hover:underline flex items-center gap-1"
+                        >
+                          <span>Open Full Drawing Canvas</span>
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div
                         onClick={() => setInspectorTab('cad')}
-                        className="text-blue-900 font-bold text-xs hover:underline flex items-center gap-1"
+                        className="cursor-pointer hover:opacity-95 transition-opacity"
                       >
-                        <span>Open Full Drawing Canvas</span>
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </button>
+                        <TechnicalDrawingPreview document={selectedDoc} />
+                      </div>
                     </div>
-                    <div
-                      onClick={() => setInspectorTab('cad')}
-                      className="cursor-pointer hover:opacity-95 transition-opacity"
-                    >
-                      <TechnicalDrawingPreview document={selectedDoc} />
+                  ) : (
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-900 flex items-center justify-center border border-blue-200 shadow-2xs">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">
+                              Document Preparation & Dossier Content
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              3-Page Front Dossier + Word & PDF Content Pages
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDoc(selectedDoc);
+                              setIsEditorModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                            <span>Open in Word Editor</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDoc(selectedDoc);
+                              setIsEditorModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200"
+                          >
+                            <Printer className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Convert to PDF</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Dossier Structure Indicators */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Page 1</span>
+                          <span className="text-xs font-bold text-slate-800">Control Sheet</span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Title, PO & Ref Codes</span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Page 2</span>
+                          <span className="text-xs font-bold text-slate-800">Cover & Sign-off Matrix</span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Author, Checked & Approved</span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Page 3</span>
+                          <span className="text-xs font-bold text-slate-800">Revision History & HOLDs</span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Milestones & Verification</span>
+                        </div>
+                      </div>
+
+                      {/* Content Preview Box */}
+                      <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                          <span>Document Chapters & Text Content:</span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            Format: {selectedDoc.fileFormat?.toUpperCase() || 'DOCX'}
+                          </span>
+                        </div>
+                        {selectedDoc.bodyHtml ? (
+                          <div
+                            className="text-xs text-slate-700 bg-white p-3 rounded border border-slate-200 max-h-36 overflow-y-auto leading-relaxed prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: selectedDoc.bodyHtml }}
+                          />
+                        ) : selectedDoc.description ? (
+                          <p className="text-xs text-slate-700 bg-white p-3 rounded border border-slate-200 italic">
+                            {selectedDoc.description}
+                          </p>
+                        ) : (
+                          <div className="text-center py-4 text-xs text-slate-400 bg-white rounded border border-dashed border-slate-200">
+                            Document ready for editing. Click "Open in Word Editor" to prepare chapters, tables, or import .docx files.
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* TAB 2: CAD DRAWING CANVAS */}
-              {inspectorTab === 'cad' && (
+              {/* TAB 2: CAD DRAWING CANVAS (Only for DWG Engineering Drawings) */}
+              {inspectorTab === 'cad' && selectedDoc.documentType === 'DWG' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1775,7 +1865,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                   Automatic Sequential Format
                 </span>
                 <div className="font-mono font-bold text-blue-950 text-sm">
-                  {newForm.projectCode.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase()}-
+                  {(newForm.projectCode || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase()}-
                   {newForm.originator}-{newForm.discipline}-{newForm.documentType}-###
                 </div>
               </div>
@@ -1800,7 +1890,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                     type="text"
                     value={newForm.documentScope}
                     onChange={(e) => setNewForm({ ...newForm, documentScope: e.target.value })}
-                    placeholder="e.g., Boskalis Offshore Export Cable Installation"
+                    placeholder="e.g., Turnkey Engineering, Installation & Commissioning"
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
                   />
                 </div>
@@ -1949,7 +2039,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       type="text"
                       value={newForm.clientDocumentNumber}
                       onChange={(e) => setNewForm({ ...newForm, clientDocumentNumber: e.target.value })}
-                      placeholder="e.g., 02488566"
+                      placeholder="e.g., CLI-DOC-001"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono"
                     />
                   </div>
@@ -1959,40 +2049,30 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       type="text"
                       value={newForm.clientRevisionCode}
                       onChange={(e) => setNewForm({ ...newForm, clientRevisionCode: e.target.value })}
-                      placeholder="e.g., C or 01"
+                      placeholder="e.g., 0 or A"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] text-slate-500 mb-1">PO Number</label>
                     <input
                       type="text"
                       value={newForm.poNumber}
                       onChange={(e) => setNewForm({ ...newForm, poNumber: e.target.value })}
-                      placeholder="e.g., P0036341"
+                      placeholder="e.g., PO-2026-001 (optional)"
                       className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">RDS-PP Code</label>
-                    <input
-                      type="text"
-                      value={newForm.rdsPpCode}
-                      onChange={(e) => setNewForm({ ...newForm, rdsPpCode: e.target.value })}
-                      placeholder="#HOW02=X01..."
-                      className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Contract Number</label>
+                    <label className="block text-[11px] text-slate-500 mb-1">Contract Number (Blank for Proposals)</label>
                     <input
                       type="text"
                       value={newForm.contractNumber}
                       onChange={(e) => setNewForm({ ...newForm, contractNumber: e.target.value })}
-                      placeholder="e.g., 0049"
+                      placeholder="Leave blank for proposals or enter ID"
                       className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs font-mono"
                     />
                   </div>

@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 15mm 15mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .page-break,
+  .print\:break-after-page {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* Prevent awkward page break inside headers or cards */
+  h1, h2, h3, h4, .no-break-inside {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}

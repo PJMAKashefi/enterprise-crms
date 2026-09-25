@@ -189,9 +189,9 @@ export const CommunicationChainView: React.FC<CommunicationChainViewProps> = ({
                       {isIncoming ? `From: ${item.senderOrg}` : `To: ${item.recipientOrg}`}
                     </span>
                     <span>•</span>
-                    <span className="capitalize">Purpose: {item.actionPurpose.replace(/_/g, ' ')}</span>
+                    <span className="capitalize">Purpose: {(item.actionPurpose || 'for_information').replace(/_/g, ' ')}</span>
                     <span>•</span>
-                    <span className="capitalize font-semibold text-slate-700">Status: {item.status.replace(/_/g, ' ')}</span>
+                    <span className="capitalize font-semibold text-slate-700">Status: {(item.status || 'draft').replace(/_/g, ' ')}</span>
                   </div>
 
                   {/* Body Snippet */}

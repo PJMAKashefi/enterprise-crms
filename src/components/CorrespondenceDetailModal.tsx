@@ -438,7 +438,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
 
                 {/* Workflow Status */}
                 <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                  {correspondence.status.replace(/_/g, ' ')}
+                  {(correspondence.status || 'draft').replace(/_/g, ' ')}
                 </span>
 
                 {/* Confidentiality */}
@@ -1129,7 +1129,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                                   </span>
                                   {event.activityType && (
                                     <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                                      {event.activityType.replace(/_/g, ' ')}
+                                      {(event.activityType || '').replace(/_/g, ' ')}
                                     </span>
                                   )}
                                 </div>
@@ -1364,7 +1364,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-bold uppercase text-blue-900 bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200">
-                                {rel.relationshipType.replace(/_/g, ' ')}
+                                {(rel.relationshipType || 'relates_to').replace(/_/g, ' ')}
                               </span>
                               <span className="font-mono text-xs font-bold text-slate-900">
                                 {rel.targetCorrespondenceNumber}

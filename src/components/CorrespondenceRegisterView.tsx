@@ -421,7 +421,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
         c.officialDate,
         `"${(c.senderDept || c.senderOrg || 'Internal').replace(/"/g, '""')} - ${(c.senderPerson || '').replace(/"/g, '""')}"`,
         `"${(c.recipientDept || c.recipientOrg || 'Internal').replace(/"/g, '""')} - ${(c.recipientPerson || '').replace(/"/g, '""')}"`,
-        `"${c.subject.replace(/"/g, '""')}"`,
+        `"${(c.subject || '').replace(/"/g, '""')}"`,
         c.status,
         c.priority,
         `"${(c.assignedUserName || 'Unassigned').replace(/"/g, '""')}"`,
@@ -806,7 +806,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                         item.status
                       )}`}
                     >
-                      {item.status.replace(/_/g, ' ')}
+                      {(item.status || 'draft').replace(/_/g, ' ')}
                     </span>
                   </div>
                 </div>
@@ -1070,7 +1070,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                             item.status
                           )}`}
                         >
-                          {item.status.replace(/_/g, ' ')}
+                          {(item.status || 'draft').replace(/_/g, ' ')}
                         </span>
                         {item.emailStatus === 'drafted' && (
                           <span

@@ -246,7 +246,7 @@ export function generateCorrespondencePdf(
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
     const relText = `Reference: ${correspondence.relatedLinks
-      .map((r) => `${r.relationshipType.replace(/_/g, ' ')} ${r.targetCorrespondenceNumber}`)
+      .map((r) => `${(r.relationshipType || 'relates_to').replace(/_/g, ' ')} ${r.targetCorrespondenceNumber}`)
       .join('; ')}`;
     doc.text(relText, margin, cursorY);
     cursorY += 6;

@@ -63,7 +63,12 @@ export default function App() {
   // Controlled External Reviewer Viewer State (supports URL query param or in-app preview)
   const [externalViewerShareToken, setExternalViewerShareToken] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('ext_share');
+    const token = params.get('ext_access_token') || params.get('ext_share') || params.get('token');
+    if (token) return token;
+    if (window.location.pathname.startsWith('/external-access/')) {
+      return window.location.pathname.replace('/external-access/', '').split('?')[0];
+    }
+    return null;
   });
   const [externalViewerShareId, setExternalViewerShareId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -475,8 +480,14 @@ export default function App() {
         onExit={() => {
           setExternalViewerShareToken(null);
           setExternalViewerShareId(null);
-          if (window.location.search.includes('ext_share') || window.location.search.includes('share_id')) {
-            window.history.replaceState({}, '', window.location.pathname);
+          if (
+            window.location.search.includes('ext_share') ||
+            window.location.search.includes('share_id') ||
+            window.location.search.includes('ext_access_token') ||
+            window.location.search.includes('token') ||
+            window.location.pathname.startsWith('/external-access')
+          ) {
+            window.history.replaceState({}, '', '/');
           }
         }}
       />
@@ -587,6 +598,7 @@ export default function App() {
                 }}
                 onRefreshData={fetchData}
                 onOpenExternalViewer={(shareId) => setExternalViewerShareId(shareId)}
+                onOpenExternalViewerByToken={(token) => setExternalViewerShareToken(token)}
                 onBackToDashboard={() => setActiveTab('dashboard')}
                 isFullPage={true}
               />
@@ -895,6 +907,7 @@ export default function App() {
                   }}
                   onRefreshData={fetchData}
                   onOpenExternalViewer={(shareId) => setExternalViewerShareId(shareId)}
+                  onOpenExternalViewerByToken={(token) => setExternalViewerShareToken(token)}
                   onBackToDashboard={() => setActiveTab('dashboard')}
                   isFullPage={false}
                 />

@@ -149,7 +149,7 @@ export const Header: React.FC<HeaderProps> = ({
                         {task.correspondenceSubject}
                       </p>
                       <span className="inline-block mt-1 text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {task.taskType.replace(/_/g, ' ')}
+                        {(task.taskType || 'task').replace(/_/g, ' ')}
                       </span>
                     </button>
                   ))

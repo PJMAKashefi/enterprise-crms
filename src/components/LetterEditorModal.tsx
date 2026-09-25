@@ -2453,7 +2453,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                       <tr className="border-b border-slate-200">
                         <td className="py-2 px-3 bg-slate-50 font-bold text-slate-600">ACTION / PURPOSE:</td>
                         <td className="py-2 px-3 uppercase text-[11px] font-bold text-purple-800">
-                          {actionPurpose.replace('_', ' ')}
+                          {(actionPurpose || 'for_action').replace('_', ' ')}
                         </td>
                       </tr>
                       <tr>

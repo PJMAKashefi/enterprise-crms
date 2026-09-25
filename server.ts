@@ -1,5 +1,4 @@
 import express from 'express';
-import http from 'http';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './server/routes';
@@ -10,7 +9,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Initialize persistent database
   initDatabase();
@@ -27,15 +26,10 @@ async function startServer() {
   // Mount API Router
   app.use('/api', apiRouter);
 
-  const server = http.createServer(app);
-
   // Vite middleware in development vs Static serving in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : { server },
-      },
+      server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -47,7 +41,7 @@ async function startServer() {
     });
   }
 
-  server.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Enterprise CMS] Server running on http://0.0.0.0:${PORT}`);
   });
 }

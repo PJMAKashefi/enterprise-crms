@@ -239,7 +239,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                         {t.correspondenceNumber}
                       </span>
                       <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                        {t.taskType.replace(/_/g, ' ')}
+                        {(t.taskType || 'task').replace(/_/g, ' ')}
                       </span>
                       <span
                         className={`text-[10px] uppercase px-2 py-0.5 rounded-full border ${getPriorityBadge(
@@ -257,7 +257,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                   <div className="text-right text-xs shrink-0">
                     {getDueDateLabel(t.dueDate, t.status)}
                     <div className="text-[10px] text-slate-400 mt-1 capitalize font-medium">
-                      Status: {t.status.replace(/_/g, ' ')}
+                      Status: {(t.status || 'pending').replace(/_/g, ' ')}
                     </div>
                   </div>
                 </div>

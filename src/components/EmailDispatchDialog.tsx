@@ -111,12 +111,12 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
     if (tpl && tpl.bodyFormat) {
       // Replace placeholders
       let text = tpl.bodyFormat
-        .replace(/{salutation}/g, salutation.replace(/^Dear\s+/, ''))
-        .replace(/{recipientName}/g, name)
-        .replace(/{subject}/g, correspondence.subject)
-        .replace(/{letterNumber}/g, correspondence.correspondenceNumber)
-        .replace(/{signatoryName}/g, correspondence.signatoryName || settings.signature.signatoryName)
-        .replace(/{signatoryPosition}/g, correspondence.signatoryPosition || settings.signature.position)
+        .replace(/{salutation}/g, (salutation || '').replace(/^Dear\s+/, ''))
+        .replace(/{recipientName}/g, name || '')
+        .replace(/{subject}/g, correspondence?.subject || '')
+        .replace(/{letterNumber}/g, correspondence?.correspondenceNumber || '')
+        .replace(/{signatoryName}/g, correspondence?.signatoryName || settings.signature.signatoryName)
+        .replace(/{signatoryPosition}/g, correspondence?.signatoryPosition || settings.signature.position)
         .replace(/{companyName}/g, settings.companyName);
       return text;
     }
@@ -210,7 +210,7 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
     }
   };
 
-  const pdfFilename = `${correspondence.correspondenceNumber.replace(/[\/\\]/g, '_')}_Official_Letter.pdf`;
+  const pdfFilename = `${(correspondence?.correspondenceNumber || 'Correspondence').replace(/[\/\\]/g, '_')}_Official_Letter.pdf`;
 
   // Submit Handler
   const handleExecute = async (e: React.FormEvent) => {
@@ -269,7 +269,7 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
           subject: emailSubject,
           bodyText: emailBody,
           bodyHtml: `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;">
-            ${emailBody.replace(/\n/g, '<br/>')}
+            ${(emailBody || '').replace(/\n/g, '<br/>')}
             <br/><br/>
             <hr style="border: none; border-top: 1px solid #cbd5e1; margin: 20px 0;"/>
             <p style="font-size: 11px; color: #64748b;">

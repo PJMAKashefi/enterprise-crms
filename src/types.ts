@@ -597,11 +597,12 @@ export interface DocumentRevisionSignOff {
 }
 
 export interface DocumentRevision {
-  id: string;
+  id?: string;
   revision: string; // 'Rev 0', 'Rev A', 'Rev 1', etc.
-  issueDate: string; // YYYY-MM-DD
-  issuedByUserId: string;
-  issuedByUserName: string;
+  issueDate?: string; // YYYY-MM-DD
+  date?: string; // Alternative date field
+  issuedByUserId?: string;
+  issuedByUserName?: string;
   reasonForIssue: string; // 'For Review', 'For Approval', 'Tender Submission', etc.
   reviewStatus: DocumentReviewStatus;
   transmittalLetterNumber?: string;
@@ -611,7 +612,43 @@ export interface DocumentRevision {
   fileUrl?: string;
   notes?: string;
   signOff?: DocumentRevisionSignOff;
-  createdAt: string;
+  dccUserId?: string;
+  dccUserName?: string;
+  checkedByName?: string;
+  checkedByPosition?: string;
+  approvedByName?: string;
+  approvedByPosition?: string;
+  wordCount?: number;
+  pageCount?: number;
+  createdAt?: string;
+}
+
+export interface FrontPageConfig {
+  showPage1ControlSheet: boolean;
+  showPage2CoverSheet: boolean;
+  showPage3RevisionHoldPoints: boolean;
+  showContractNumber: boolean;
+  showPoNumber: boolean;
+  showClientDocNumber: boolean;
+  showScopeOfWorks: boolean;
+  showGraphicBanner: boolean;
+  showHoldPoints: boolean;
+  showRevisionHistory: boolean;
+  showMilestone: boolean;
+  customHeaderTitle?: string;
+  customSubtitle?: string;
+  customFooterText?: string;
+}
+
+export interface DocumentSignOffPerson {
+  id: string;
+  role: 'initiated' | 'checked' | 'verified' | 'approved';
+  name: string;
+  position?: string;
+  company?: string;
+  date?: string;
+  digitalId?: string;
+  status: 'pending' | 'verified' | 'approved' | 'signed';
 }
 
 export interface TechnicalDocument {
@@ -619,12 +656,13 @@ export interface TechnicalDocument {
   documentNumber: string; // Multi-discipline formatted number: PRJ-PJMAK-MEC-DWG-0001
   title: string;
   description?: string;
+  chapters?: any[];
   
   // Project & Client identification
   projectCode: string; // e.g., 'PRJ-2026-01'
   projectName: string; // e.g., 'South Pars Refinery Modernization'
-  clientCompany: string; // e.g., 'National Petrochemical Co.'
-  clientContactPerson?: string; // e.g., 'Mr. John Miller'
+  clientCompany: string; // e.g., 'Client Company'
+  clientContactPerson?: string; // e.g., 'John Miller'
   clientEmail?: string;
 
   // Multi-discipline Classification
@@ -660,15 +698,17 @@ export interface TechnicalDocument {
 
   // Document Origin & Word-Style Engineering Workspace (Pages 1-3)
   documentMode?: 'generated' | 'received'; // 'generated' = created in-house (Word-style), 'received' = received from external stakeholder
-  documentScope?: string; // e.g., 'Boskalis Offshore Export Cable Installation'
-  clientDocumentNumber?: string; // External / Client reference e.g. '02488566'
-  clientRevisionCode?: string; // e.g., 'C'
-  contractorDocumentNumber?: string; // e.g., 'P0036341-BSCF-GEN-RP-1014'
-  contractorRevisionNo?: string; // e.g., '0'
-  poNumber?: string; // e.g., 'P0036341'
-  rdsPpCode?: string; // Work breakdown / RDS-PP / Asset code e.g. '#HOW02=X01AAD12WB002-WB001&CDB'
+  documentScope?: string;
+  clientDocumentNumber?: string;
+  clientRevisionCode?: string;
+  contractorDocumentNumber?: string;
+  contractorRevisionNo?: string;
+  poNumber?: string;
+  rdsPpCode?: string;
   fileFormat?: string; // 'docx' | 'pdf' | 'dwg' | 'xlsx'
   bodyHtml?: string; // Rich HTML / Word-style document content or review commentary
+  frontPageConfig?: FrontPageConfig;
+  signOffTeam?: DocumentSignOffPerson[];
   holdPoints?: {
     nr: number;
     description: string;
@@ -841,6 +881,9 @@ export interface DocumentShare {
 export type ExternalAuditEventType =
   | 'invitation_created'
   | 'invitation_sent'
+  | 'access_created'
+  | 'first_opened'
+  | 'subsequent_access'
   | 'login'
   | 'failed_login'
   | 'document_opened'
@@ -857,18 +900,22 @@ export type ExternalAuditEventType =
   | 'revision_accessed'
   | 'download_attempted'
   | 'print_attempted'
+  | 'copy_attempted'
+  | 'failed_access_attempt'
   | 'access_revoked'
   | 'access_expired';
 
 export interface ExternalAccessAuditLog {
   id: string;
   shareId?: string;
+  accessId?: string;
   documentId?: string;
   documentNumber?: string;
   revision?: string;
   externalUserId?: string;
   externalUserName?: string;
   externalUserCompany?: string;
+  recipientEmail?: string;
   performedByUserId?: string;
   performedByUserName?: string;
   actorType: 'internal' | 'external' | 'system';
@@ -879,5 +926,32 @@ export interface ExternalAccessAuditLog {
   metadata?: Record<string, any>;
 }
 
-
-
+// -------------------------------------------------------------
+// SECURE EXTERNAL PROPOSAL ACCESS SESSION
+// -------------------------------------------------------------
+export interface ExternalAccessSession {
+  id: string;
+  token: string;              // Non-guessable random token
+  accessId: string;           // Human-readable unique access ID e.g. ACC-8921-4192
+  documentId: string;
+  documentNumber: string;
+  documentTitle: string;
+  selectedRevision: string;
+  recipientName: string;
+  recipientEmail: string;
+  recipientCompany?: string;
+  createdAt: string;
+  expiresAt: string;          // ISO timestamp (default: +48 hours)
+  durationHours: number;      // e.g. 48
+  status: 'active' | 'expired' | 'revoked';
+  revokedAt?: string;
+  revokedByUserId?: string;
+  revokedByUserName?: string;
+  revocationReason?: string;
+  firstOpenedAt?: string;
+  lastOpenedAt?: string;
+  accessCount: number;
+  createdByUserId: string;
+  createdByUserName: string;
+  notes?: string;
+}

@@ -408,7 +408,7 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
                             : 'bg-slate-200 text-slate-700'
                         }`}
                       >
-                        {status.replace('_', ' ')}
+                        {(status || 'active').replace('_', ' ')}
                       </span>
                     </div>
 
@@ -489,7 +489,7 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
                           {selectedShare.documentNumber} ({selectedShare.selectedRevision})
                         </h3>
                         <span className="text-2xs bg-teal-100 text-teal-800 font-semibold px-2 py-0.5 rounded-full uppercase">
-                          {selectedShare.liveStatus.replace('_', ' ')}
+                          {(selectedShare.liveStatus || 'active').replace('_', ' ')}
                         </span>
                       </div>
                       <p className="text-xs text-slate-600">{selectedShare.documentTitle}</p>
@@ -901,7 +901,7 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
                     <div key={log.id} className="pt-2 pb-1 space-y-1">
                       <div className="flex items-center justify-between text-2xs">
                         <span className="font-semibold text-slate-800 uppercase font-mono">
-                          {log.eventType.replace('_', ' ')}
+                          {(log.eventType || '').replace('_', ' ')}
                         </span>
                         <span className="text-slate-400">
                           {new Date(log.timestamp).toLocaleString()}
