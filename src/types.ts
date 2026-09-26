@@ -638,6 +638,7 @@ export interface FrontPageConfig {
   customHeaderTitle?: string;
   customSubtitle?: string;
   customFooterText?: string;
+  clientLogoUrl?: string;
 }
 
 export interface DocumentSignOffPerson {
@@ -707,6 +708,7 @@ export interface TechnicalDocument {
   rdsPpCode?: string;
   fileFormat?: string; // 'docx' | 'pdf' | 'dwg' | 'xlsx'
   bodyHtml?: string; // Rich HTML / Word-style document content or review commentary
+  clientLogoUrl?: string; // Base64 or image URL for client organization logo on Page 2 and letterheads
   frontPageConfig?: FrontPageConfig;
   signOffTeam?: DocumentSignOffPerson[];
   holdPoints?: {
