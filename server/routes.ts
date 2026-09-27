@@ -664,30 +664,33 @@ apiRouter.put('/correspondence/:id', (req: Request, res: Response) => {
 
   // Check if officialDate is being changed
   if (body.officialDate && body.officialDate !== existing.officialDate) {
-    if (currentUser.role !== 'admin') {
-      return res.status(403).json({
-        error:
-          'Security Violation: Only Administrators have permission to modify the official correspondence date.',
+    const isAlreadySent = existing.status === 'sent' || existing.status === 'issued';
+    if (isAlreadySent) {
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({
+          error:
+            'Security Violation: Only Administrators have permission to modify the official correspondence date once a letter is officially issued or sent.',
+        });
+      }
+
+      if (!body.adminDateReason || body.adminDateReason.trim() === '') {
+        return res.status(400).json({
+          error:
+            'Mandatory Compliance Requirement: Administrator must supply an official justification/reason to modify correspondence date of an issued or sent record.',
+        });
+      }
+
+      // Record special audit log
+      recordAuditLog({
+        correspondenceId: existing.id,
+        action: 'ADMIN_DATE_MODIFICATION',
+        previousValue: existing.officialDate,
+        newValue: body.officialDate,
+        performedByUserId: currentUser.id,
+        performedByUserName: currentUser.name,
+        reason: body.adminDateReason,
       });
     }
-
-    if (!body.adminDateReason || body.adminDateReason.trim() === '') {
-      return res.status(400).json({
-        error:
-          'Mandatory Compliance Requirement: Administrator must supply an official justification/reason to modify correspondence date.',
-      });
-    }
-
-    // Record special audit log
-    recordAuditLog({
-      correspondenceId: existing.id,
-      action: 'ADMIN_DATE_MODIFICATION',
-      previousValue: existing.officialDate,
-      newValue: body.officialDate,
-      performedByUserId: currentUser.id,
-      performedByUserName: currentUser.name,
-      reason: body.adminDateReason,
-    });
 
     existing.officialDate = body.officialDate;
   }
@@ -751,6 +754,17 @@ apiRouter.put('/correspondence/:id', (req: Request, res: Response) => {
   existing.signatoryName = body.signatoryName ?? existing.signatoryName;
   existing.signatoryPosition =
     body.signatoryPosition ?? existing.signatoryPosition;
+  existing.recipientPosition = body.recipientPosition ?? existing.recipientPosition;
+  existing.additionalRecipients = body.additionalRecipients ?? existing.additionalRecipients;
+  existing.externalCcRecipients = body.externalCcRecipients ?? existing.externalCcRecipients;
+  existing.showCcOnLetter = body.showCcOnLetter !== undefined ? body.showCcOnLetter : existing.showCcOnLetter;
+  existing.internalCcUserIds = body.internalCcUserIds ?? existing.internalCcUserIds;
+  existing.internalCcUserNames = body.internalCcUserNames ?? existing.internalCcUserNames;
+  existing.originDepartmentId = body.originDepartmentId ?? existing.originDepartmentId;
+  existing.originDepartmentName = body.originDepartmentName ?? existing.originDepartmentName;
+  existing.destinationDepartmentId = body.destinationDepartmentId ?? existing.destinationDepartmentId;
+  existing.destinationDepartmentName = body.destinationDepartmentName ?? existing.destinationDepartmentName;
+  existing.autoUpdateDateOnSend = body.autoUpdateDateOnSend !== undefined ? body.autoUpdateDateOnSend : existing.autoUpdateDateOnSend;
   existing.templateId = body.templateId ?? existing.templateId;
   existing.relatedLinks = body.relatedLinks ?? existing.relatedLinks;
   existing.attachments = body.attachments ?? existing.attachments;
@@ -853,7 +867,10 @@ apiRouter.post(
         historyTitle = `Returned for Revisions by ${currentUser.name}`;
       }
     } else if (newStatus === 'issued' || newStatus === 'sent') {
+      const sendDate = new Date().toISOString().split('T')[0];
       item.sentAt = new Date().toISOString();
+      item.officialDate = sendDate;
+      item.dateSent = sendDate;
       historyType = 'dispatched_externally';
       historyTitle = `Dispatched Externally`;
     }
@@ -2216,8 +2233,11 @@ apiRouter.post(
     }
 
     // Direct Sending
+    const sendDate = new Date().toISOString().split('T')[0];
     item.status = 'sent';
     item.sentAt = now;
+    item.officialDate = sendDate;
+    item.dateSent = sendDate;
     item.sentVia = 'email';
     item.emailStatus = 'sent';
     item.emailProvider = provider;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Check,
@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Building2,
   Hash,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { FrontPageConfig, DocumentSignOffPerson, TechnicalDocument, User } from '../types';
 
@@ -33,6 +35,7 @@ interface FrontPageConfigModalProps {
       clientRevisionCode: string;
       documentScope: string;
       clientCompany: string;
+      clientLogoUrl?: string;
     }
   ) => void;
 }
@@ -47,6 +50,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
   onSave,
 }) => {
   const [activeTab, setActiveTab] = useState<'visibility' | 'signoff' | 'metadata'>('visibility');
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [config, setConfig] = useState<FrontPageConfig>({
     showPage1ControlSheet: initialConfig?.showPage1ControlSheet ?? true,
@@ -63,6 +67,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
     customHeaderTitle: initialConfig?.customHeaderTitle || '',
     customSubtitle: initialConfig?.customSubtitle || '',
     customFooterText: initialConfig?.customFooterText || '',
+    clientLogoUrl: initialConfig?.clientLogoUrl || doc.clientLogoUrl || '',
   });
 
   const [metadata, setMetadata] = useState({
@@ -72,7 +77,41 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
     clientRevisionCode: doc.clientRevisionCode || '0',
     documentScope: doc.documentScope || doc.description || '',
     clientCompany: doc.clientCompany || '',
+    clientLogoUrl: doc.clientLogoUrl || initialConfig?.clientLogoUrl || '',
   });
+
+  // Re-sync whenever opened
+  useEffect(() => {
+    if (isOpen) {
+      setConfig({
+        showPage1ControlSheet: initialConfig?.showPage1ControlSheet ?? true,
+        showPage2CoverSheet: initialConfig?.showPage2CoverSheet ?? true,
+        showPage3RevisionHoldPoints: initialConfig?.showPage3RevisionHoldPoints ?? true,
+        showContractNumber: initialConfig?.showContractNumber ?? (doc.documentType !== 'PRP' && Boolean(doc.contractNumber)),
+        showPoNumber: initialConfig?.showPoNumber ?? Boolean(doc.poNumber),
+        showClientDocNumber: initialConfig?.showClientDocNumber ?? Boolean(doc.clientDocumentNumber),
+        showScopeOfWorks: initialConfig?.showScopeOfWorks ?? true,
+        showGraphicBanner: initialConfig?.showGraphicBanner ?? true,
+        showHoldPoints: initialConfig?.showHoldPoints ?? true,
+        showRevisionHistory: initialConfig?.showRevisionHistory ?? true,
+        showMilestone: initialConfig?.showMilestone ?? true,
+        customHeaderTitle: initialConfig?.customHeaderTitle || '',
+        customSubtitle: initialConfig?.customSubtitle || '',
+        customFooterText: initialConfig?.customFooterText || '',
+        clientLogoUrl: initialConfig?.clientLogoUrl || doc.clientLogoUrl || '',
+      });
+
+      setMetadata({
+        contractNumber: doc.contractNumber || '',
+        poNumber: doc.poNumber || '',
+        clientDocumentNumber: doc.clientDocumentNumber || '',
+        clientRevisionCode: doc.clientRevisionCode || '0',
+        documentScope: doc.documentScope || doc.description || '',
+        clientCompany: doc.clientCompany || '',
+        clientLogoUrl: doc.clientLogoUrl || initialConfig?.clientLogoUrl || '',
+      });
+    }
+  }, [isOpen, doc]);
 
   const [team, setTeam] = useState<DocumentSignOffPerson[]>(() => {
     if (initialSignOffTeam && initialSignOffTeam.length > 0) {
@@ -147,7 +186,14 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
   };
 
   const handleApply = () => {
-    onSave(config, team, metadata);
+    onSave(
+      {
+        ...config,
+        clientLogoUrl: metadata.clientLogoUrl,
+      },
+      team,
+      metadata
+    );
     onClose();
   };
 
@@ -613,6 +659,87 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
                     placeholder="Detailed scope or subtitle for the cover sheet"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
                   />
+                </div>
+
+                {/* Client / Operator Logo Upload & URL */}
+                <div className="sm:col-span-2 p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block font-semibold text-slate-800">
+                        Client / Operator Logo (Optional)
+                      </label>
+                      <span className="text-[11px] text-slate-500">
+                        Displays alongside PJMAK letterhead on Page 1, Page 2 and throughout dossier deliverables.
+                      </span>
+                    </div>
+                    {metadata.clientLogoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setMetadata({ ...metadata, clientLogoUrl: '' })}
+                        className="text-rose-600 hover:text-rose-800 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Remove Logo</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {metadata.clientLogoUrl ? (
+                      <div className="h-12 w-28 bg-white border border-slate-300 rounded-lg p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        <img
+                          src={metadata.clientLogoUrl}
+                          alt="Client Logo Preview"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-28 bg-white border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 text-[10px] shrink-0">
+                        <ImageIcon className="h-4 w-4 text-slate-400 mr-1" />
+                        <span>No Logo</span>
+                      </div>
+                    )}
+
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer shadow-2xs"
+                        >
+                          <Upload className="h-3.5 w-3.5 text-blue-900" />
+                          <span>Upload Image</span>
+                        </button>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const result = event.target?.result as string;
+                                if (result) {
+                                  setMetadata((prev) => ({ ...prev, clientLogoUrl: result }));
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <span className="text-[11px] text-slate-400">or enter image web URL below</span>
+                      </div>
+                      <input
+                        type="url"
+                        value={metadata.clientLogoUrl}
+                        onChange={(e) => setMetadata({ ...metadata, clientLogoUrl: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

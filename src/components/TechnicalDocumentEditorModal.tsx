@@ -548,39 +548,52 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
   };
 
   // Reusable Page 2-style Letterhead used across ALL pages as requested!
-  const renderStandardLetterhead = (pageLabel?: string) => (
-    <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-6">
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
-          <PjmakLogo variant="compact" size="md" />
+  const renderStandardLetterhead = (pageLabel?: string) => {
+    const clientLogo = doc.clientLogoUrl || doc.frontPageConfig?.clientLogoUrl;
+    return (
+      <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+            <PjmakLogo variant="compact" size="md" />
+          </div>
+          <div>
+            <span className="font-black text-xl text-blue-950 tracking-tight block">PJMAK</span>
+          </div>
         </div>
-        <div>
-          <span className="font-black text-xl text-blue-950 tracking-tight block">PJMAK</span>
-          <span className="text-[10px] text-slate-500 uppercase font-semibold">Engineering Contractor</span>
-        </div>
-      </div>
 
-      <div className="text-right">
-        {doc.clientCompany ? (
-          <>
-            <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
-              {doc.clientCompany}
-            </span>
-            <span className="text-[10px] text-slate-400 uppercase font-semibold">Client / Operator</span>
-          </>
-        ) : (
-          <>
-            <span className="font-extrabold text-lg text-slate-900 tracking-tight block">
-              {doc.projectName}
-            </span>
-            <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
-              {doc.projectCode} • {pageLabel || 'Engineering Deliverable'}
-            </span>
-          </>
-        )}
+        <div className="flex items-center gap-3 text-right">
+          {clientLogo && (
+            <div className="h-11 max-w-[140px] flex items-center justify-center p-1 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden shrink-0">
+              <img
+                src={clientLogo}
+                alt={doc.clientCompany || 'Client Logo'}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          )}
+          <div>
+            {doc.clientCompany ? (
+              <>
+                <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
+                  {doc.clientCompany}
+                </span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">Client / Operator</span>
+              </>
+            ) : (
+              <>
+                <span className="font-extrabold text-lg text-slate-900 tracking-tight block">
+                  {doc.projectName}
+                </span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
+                  {doc.projectCode} • {pageLabel || 'Engineering Deliverable'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const cfg = doc.frontPageConfig || {
     showPage1ControlSheet: true,
@@ -2042,6 +2055,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               clientRevisionCode: metadataUpdates.clientRevisionCode,
               documentScope: metadataUpdates.documentScope,
               clientCompany: metadataUpdates.clientCompany,
+              clientLogoUrl: metadataUpdates.clientLogoUrl !== undefined ? metadataUpdates.clientLogoUrl : prev.clientLogoUrl,
             }));
           }}
         />
