@@ -74,6 +74,7 @@ interface EditorModalProps {
   settings: CompanySettings;
   templates: LetterTemplate[];
   replyToItem?: Correspondence | null;
+  editItem?: Correspondence | null;
   onClose: () => void;
   onSave: (data: Partial<Correspondence>) => Promise<void>;
   onCreateContact: (contact: Partial<Contact>) => Promise<Contact>;
@@ -88,19 +89,33 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   settings,
   templates,
   replyToItem,
+  editItem,
   onClose,
   onSave,
   onCreateContact,
 }) => {
-  const [type, setType] = useState<CorrespondenceType>(initialType);
+  const [type, setType] = useState<CorrespondenceType>(
+    editItem ? editItem.type : initialType
+  );
   const [activeTab, setActiveTab] = useState<'compose' | 'preview'>('compose');
+
+  // Today's official date
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Official letter date
+  const [officialDate, setOfficialDate] = useState<string>(
+    editItem?.officialDate || todayStr
+  );
+  const [autoUpdateDateOnSend, setAutoUpdateDateOnSend] = useState<boolean>(
+    editItem?.autoUpdateDateOnSend !== undefined ? editItem.autoUpdateDateOnSend : true
+  );
 
   // Internal correspondence routing states
   const [originDeptId, setOriginDeptId] = useState(
-    departments[0]?.id || ''
+    editItem?.originDepartmentId || departments[0]?.id || ''
   );
   const [destinationDeptId, setDestinationDeptId] = useState(
-    departments[1]?.id || departments[0]?.id || ''
+    editItem?.destinationDepartmentId || departments[1]?.id || departments[0]?.id || ''
   );
 
   // Searchable Reply / Related Correspondence states
@@ -112,13 +127,21 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
 
   // Form states
   const [subject, setSubject] = useState(
-    replyToItem ? `RE: ${replyToItem.subject}` : ''
+    editItem ? editItem.subject : replyToItem ? `RE: ${replyToItem.subject}` : ''
   );
   const [actionPurpose, setActionPurpose] = useState<ActionPurpose>(
-    replyToItem ? 'reply' : initialType === 'internal' ? 'internal_memo' : 'new_correspondence'
+    editItem
+      ? editItem.actionPurpose
+      : replyToItem
+      ? 'reply'
+      : initialType === 'internal'
+      ? 'internal_memo'
+      : 'new_correspondence'
   );
   const [bodyHtml, setBodyHtml] = useState(
-    replyToItem
+    editItem
+      ? editItem.bodyHtml
+      : replyToItem
       ? `<p>Dear Sirs,</p><p>We acknowledge receipt of your letter ref <strong>${
           replyToItem.externalRefNumber || replyToItem.correspondenceNumber
         }</strong> dated ${replyToItem.officialDate}.</p><p>Having reviewed your submission...</p>`
@@ -128,43 +151,57 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   );
 
   // Attachments
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>(
+    editItem?.attachments || []
+  );
   const [newAttachmentName, setNewAttachmentName] = useState('');
 
   // Correspondent
   const [recipientOrg, setRecipientOrg] = useState(
-    replyToItem
+    editItem
+      ? editItem.recipientOrg
+      : replyToItem
       ? replyToItem.senderOrg
       : initialType === 'internal'
       ? settings.companyName
       : ''
   );
   const [recipientPerson, setRecipientPerson] = useState(
-    replyToItem ? replyToItem.senderPerson : ''
+    editItem ? editItem.recipientPerson : replyToItem ? replyToItem.senderPerson : ''
   );
   const [recipientPosition, setRecipientPosition] = useState(
-    replyToItem?.recipientPosition || ''
+    editItem?.recipientPosition || replyToItem?.recipientPosition || ''
   );
   const [recipientEmail, setRecipientEmail] = useState(
-    replyToItem ? replyToItem.senderEmail : ''
+    editItem ? editItem.recipientEmail : replyToItem ? replyToItem.senderEmail : ''
   );
   const [senderOrg, setSenderOrg] = useState(
-    initialType === 'incoming' ? '' : settings.companyName
+    editItem ? editItem.senderOrg : initialType === 'incoming' ? '' : settings.companyName
   );
   const [senderPerson, setSenderPerson] = useState(
-    initialType === 'internal' ? settings.signature.signatoryName : ''
+    editItem
+      ? editItem.senderPerson
+      : initialType === 'internal'
+      ? settings.signature.signatoryName
+      : ''
   );
-  const [senderEmail, setSenderEmail] = useState('');
+  const [senderEmail, setSenderEmail] = useState(
+    editItem ? editItem.senderEmail : ''
+  );
 
   // CC Distribution State
   const [showCcOnLetter, setShowCcOnLetter] = useState(
-    replyToItem?.showCcOnLetter !== undefined ? replyToItem.showCcOnLetter : true
+    editItem?.showCcOnLetter !== undefined
+      ? editItem.showCcOnLetter
+      : replyToItem?.showCcOnLetter !== undefined
+      ? replyToItem.showCcOnLetter
+      : true
   );
   const [internalCcUserIds, setInternalCcUserIds] = useState<string[]>(
-    replyToItem?.internalCcUserIds || []
+    editItem?.internalCcUserIds || replyToItem?.internalCcUserIds || []
   );
   const [ccEmails, setCcEmails] = useState<string[]>(
-    replyToItem?.ccEmails || []
+    editItem?.ccEmails || replyToItem?.ccEmails || []
   );
   const [newCcEmailInput, setNewCcEmailInput] = useState('');
 
@@ -172,7 +209,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [additionalRecipients, setAdditionalRecipients] = useState<
     Array<{ id: string; orgName: string; contactPerson: string; position: string; email: string }>
   >(
-    (replyToItem?.additionalRecipients || []).map((r, i) => ({
+    (editItem?.additionalRecipients || replyToItem?.additionalRecipients || []).map((r, i) => ({
       id: r.id || `addl-recip-${i}-${Date.now()}`,
       orgName: r.orgName || '',
       contactPerson: r.contactPerson || '',
@@ -190,7 +227,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [externalCcRecipients, setExternalCcRecipients] = useState<
     Array<{ id: string; name: string; orgName?: string; position?: string; email?: string }>
   >(
-    (replyToItem?.externalCcRecipients || []).map((r, i) => ({
+    (editItem?.externalCcRecipients || replyToItem?.externalCcRecipients || []).map((r, i) => ({
       id: r.id || `ext-cc-${i}-${Date.now()}`,
       name: r.name || '',
       orgName: r.orgName || '',
@@ -252,24 +289,29 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   };
 
   // Classification & Routing
-  const [confidentiality, setConfidentiality] =
-    useState<ConfidentialityLevel>('normal');
-  const [priority, setPriority] = useState<PriorityLevel>('normal');
-  const [assignedDeptId, setAssignedDeptId] = useState(departments[0]?.id || '');
-  const [dueDate, setDueDate] = useState('');
+  const [confidentiality, setConfidentiality] = useState<ConfidentialityLevel>(
+    editItem?.confidentiality || 'normal'
+  );
+  const [priority, setPriority] = useState<PriorityLevel>(
+    editItem?.priority || 'normal'
+  );
+  const [assignedDeptId, setAssignedDeptId] = useState(
+    editItem?.assignedDepartmentId || departments[0]?.id || ''
+  );
+  const [dueDate, setDueDate] = useState(editItem?.dueDate || '');
 
   // Incoming specific
   const [externalRefNumber, setExternalRefNumber] = useState(
-    replyToItem?.externalRefNumber || replyToItem?.correspondenceNumber || ''
+    editItem?.externalRefNumber || replyToItem?.externalRefNumber || replyToItem?.correspondenceNumber || ''
   );
-  const [externalDate, setExternalDate] = useState('');
+  const [externalDate, setExternalDate] = useState(editItem?.externalDate || '');
   const [receivedThrough, setReceivedThrough] = useState<
     'courier' | 'email' | 'registered_post' | 'hand_delivery' | 'portal'
-  >('email');
+  >(editItem?.receivedThrough || 'email');
 
   // Related correspondence links
   const [relatedLinks, setRelatedLinks] = useState<RelatedLink[]>(
-    replyToItem
+    editItem?.relatedLinks || (replyToItem
       ? [
           {
             id: `rel-${Date.now()}`,
@@ -281,16 +323,18 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
             date: replyToItem.officialDate,
           },
         ]
-      : []
+      : [])
   );
 
   // Signatory
-  const [signatureIncluded, setSignatureIncluded] = useState(true);
+  const [signatureIncluded, setSignatureIncluded] = useState(
+    editItem?.signatureIncluded !== undefined ? editItem.signatureIncluded : true
+  );
   const [signatoryName, setSignatoryName] = useState(
-    settings.signature.signatoryName
+    editItem?.signatoryName || settings.signature.signatoryName
   );
   const [signatoryPosition, setSignatoryPosition] = useState(
-    settings.signature.position
+    editItem?.signatoryPosition || settings.signature.position
   );
   const [activeSignatureUrl, setActiveSignatureUrl] = useState(
     settings.signature?.signatureImageUrl || '/assets/signature_kashefi.svg'
@@ -318,24 +362,32 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [contactSuccessToast, setContactSuccessToast] = useState<string | null>(null);
 
   // Commercial & Financial Traceability
-  const [clientCode, setClientCode] = useState(replyToItem?.clientCode || '');
-  const [costCode, setCostCode] = useState(replyToItem?.costCode || '');
-  const [revenueCode, setRevenueCode] = useState(replyToItem?.revenueCode || '');
-  const [contractNumber, setContractNumber] = useState(replyToItem?.contractNumber || '');
-  const [proformaInvoiceNumber, setProformaInvoiceNumber] = useState(replyToItem?.proformaInvoiceNumber || '');
+  const [clientCode, setClientCode] = useState(editItem?.clientCode || replyToItem?.clientCode || '');
+  const [costCode, setCostCode] = useState(editItem?.costCode || replyToItem?.costCode || '');
+  const [revenueCode, setRevenueCode] = useState(editItem?.revenueCode || replyToItem?.revenueCode || '');
+  const [contractNumber, setContractNumber] = useState(editItem?.contractNumber || replyToItem?.contractNumber || '');
+  const [proformaInvoiceNumber, setProformaInvoiceNumber] = useState(editItem?.proformaInvoiceNumber || replyToItem?.proformaInvoiceNumber || '');
   const [commercialValue, setCommercialValue] = useState<string>(
-    replyToItem?.commercialValue !== undefined ? String(replyToItem.commercialValue) : ''
+    editItem?.commercialValue !== undefined
+      ? String(editItem.commercialValue)
+      : replyToItem?.commercialValue !== undefined
+      ? String(replyToItem.commercialValue)
+      : ''
   );
-  const [currency, setCurrency] = useState(replyToItem?.currency || 'USD');
+  const [currency, setCurrency] = useState(editItem?.currency || replyToItem?.currency || 'USD');
   const [showCommercialSection, setShowCommercialSection] = useState(
-    Boolean(replyToItem?.clientCode || replyToItem?.costCode || replyToItem?.contractNumber)
+    Boolean(
+      editItem?.clientCode ||
+      editItem?.costCode ||
+      editItem?.contractNumber ||
+      replyToItem?.clientCode ||
+      replyToItem?.costCode ||
+      replyToItem?.contractNumber
+    )
   );
 
   // Saving state
   const [saving, setSaving] = useState(false);
-
-  // Today's official date
-  const todayStr = new Date().toISOString().split('T')[0];
 
   // Natural sequence number (e.g. IN-2026-1, OUT-2026-1, IC-2026-1 - NO LEADING ZEROS)
   const prefix = type === 'incoming' ? 'IN' : type === 'outgoing' ? 'OUT' : 'IC';
@@ -632,20 +684,24 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
       const destDept = departments.find((d) => d.id === destinationDeptId);
 
       const computedStatus =
-        saveMode === 'register'
+        editItem?.status ||
+        (saveMode === 'register'
           ? (type === 'outgoing' ? 'issued' : 'registered')
           : saveMode === 'draft'
           ? 'draft'
-          : (type === 'outgoing' ? 'draft' : 'registered');
+          : (type === 'outgoing' ? 'draft' : 'registered'));
 
       const internalCcNames = (users || [])
         .filter((u) => internalCcUserIds.includes(u.id))
         .map((u) => u.name);
 
       await onSave({
+        ...(editItem ? { id: editItem.id, correspondenceNumber: editItem.correspondenceNumber, sequenceNumber: editItem.sequenceNumber } : {}),
         type,
         actionPurpose,
         status: computedStatus,
+        officialDate: officialDate || todayStr,
+        autoUpdateDateOnSend,
         subject,
         bodyHtml,
         confidentiality,
@@ -723,15 +779,26 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
               )}
             </span>
             <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                {type === 'incoming'
-                  ? 'Register Incoming Correspondence'
-                  : type === 'outgoing'
-                  ? 'Compose Outgoing Official Letter'
-                  : 'Compose Internal Memorandum (IC)'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                  {editItem
+                    ? `Edit Correspondence: ${editItem.correspondenceNumber}`
+                    : type === 'incoming'
+                    ? 'Register Incoming Correspondence'
+                    : type === 'outgoing'
+                    ? 'Compose Outgoing Official Letter'
+                    : 'Compose Internal Memorandum (IC)'}
+                </h2>
+                {editItem && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+                    Draft Edit
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">
-                {type === 'internal'
+                {editItem
+                  ? `Editing letter draft. Official date will stamp automatically upon sending or you can set a manual date.`
+                  : type === 'internal'
                   ? 'Internal office distribution and inter-departmental memorandum'
                   : 'Automatic sequential numbering and official corporate letterhead compliance'}
               </p>

@@ -33,6 +33,8 @@ import {
   Eye,
   Archive,
   Copy,
+  Edit3,
+  Info,
 } from 'lucide-react';
 import {
   Correspondence,
@@ -63,6 +65,7 @@ interface DetailModalProps {
   onOpenForwardModal: () => void;
   onOpenEmailModal: () => void;
   onReply?: (item: Correspondence) => void;
+  onEditCorrespondence?: (item: Correspondence) => void;
   onTransitionStatus: (newStatus: string, notes?: string) => Promise<void>;
   onUpdateOfficialDate: (newDate: string, reason: string) => Promise<void>;
   onVoidNumber: (reason: string) => Promise<void>;
@@ -86,6 +89,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
   onOpenForwardModal,
   onOpenEmailModal,
   onReply,
+  onEditCorrespondence,
   onTransitionStatus,
   onUpdateOfficialDate,
   onVoidNumber,
@@ -396,11 +400,19 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
   const officialAttachments = attachmentsList.filter((a) => !a.isInternal);
   const totalAttachments = attachmentsList.length;
 
+  const isAlreadySent = correspondence.status === 'sent' || correspondence.status === 'issued';
+  const todayStr = new Date().toISOString().split('T')[0];
+  const effectiveDate = isAlreadySent
+    ? (correspondence.dateSent || correspondence.officialDate || todayStr)
+    : (correspondence.officialDate && correspondence.officialDate > todayStr
+        ? correspondence.officialDate
+        : todayStr);
+
   return (
-    <div id="correspondence-detail-workspace-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-50 rounded-2xl shadow-2xl border border-slate-200 w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden">
+    <div id="correspondence-detail-workspace-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible print:z-auto">
+      <div className="bg-slate-50 rounded-2xl shadow-2xl border border-slate-200 w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden print:border-none print:shadow-none print:bg-white print:w-full print:h-auto print:max-w-none print:overflow-visible">
         {/* TOP BAR: Context, Numbering, Status & Primary Actions */}
-        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0 print:hidden">
           <div className="flex items-center gap-3">
             <span
               className={`p-2 rounded-lg ${
@@ -504,6 +516,19 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
               </button>
             )}
 
+            {/* Edit Letter Button (Available until sending) */}
+            {!isAlreadySent && onEditCorrespondence && (
+              <button
+                type="button"
+                onClick={() => onEditCorrespondence(correspondence)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Edit letter content, recipient, references, and date until dispatch"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-blue-200" />
+                <span>Edit Letter</span>
+              </button>
+            )}
+
             {/* Download Official PDF */}
             <button
               onClick={handleDownloadPdf}
@@ -577,7 +602,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
         </div>
 
         {/* TAB NAVIGATION BAR */}
-        <div className="px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 overflow-x-auto">
+        <div className="px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 overflow-x-auto print:hidden">
           <div className="flex items-center gap-6 text-xs font-medium">
             <button
               onClick={() => {
@@ -702,7 +727,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
 
         {/* Email Sent Notice Banner */}
         {correspondence.emailStatus === 'sent' && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 flex items-center justify-between text-xs text-emerald-950 shrink-0">
+          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 flex items-center justify-between text-xs text-emerald-950 shrink-0 print:hidden">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
               <span>
@@ -714,10 +739,10 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
         )}
 
         {/* WORKSPACE MAIN BODY: Clean Centered Canvas */}
-        <div className="flex-1 overflow-y-auto bg-slate-100/70 p-4 sm:p-8 flex justify-center">
+        <div className="flex-1 overflow-y-auto bg-slate-100/70 p-4 sm:p-8 flex justify-center print:bg-white print:p-0 print:m-0 print:overflow-visible">
           {/* TAB 1: OFFICIAL LETTER DOCUMENT (Clean, Uncluttered, No Duplicate Data) */}
           {(activeTab === 'document' || activeTab === 'workspace') && (
-            <div className="w-full flex justify-center">
+            <div className="w-full flex justify-center print:w-full print:block">
               {selectedHistoryItem ? (
                 /* Selected Internal Message View */
                 <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-md max-w-3xl w-full space-y-6 font-sans">
@@ -785,85 +810,119 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                   </div>
                 </div>
               ) : (
-                /* OFFICIAL LETTER SHEET */
-                <div className="bg-white p-8 sm:p-14 rounded-xl border border-slate-300 shadow-md w-full max-w-4xl font-serif text-slate-800 space-y-6">
-                  {/* Top of Letter: Clean PJMAK Logo & Document Reference (NO address/KvK at top) */}
-                  {isInternal ? (
-                    <div className="border-b-2 border-slate-900 pb-5 mb-6 font-sans">
-                      <div className="flex items-start justify-between">
+                /* OFFICIAL LETTER SHEET CONTAINER */
+                <div className="w-full max-w-4xl space-y-4 print:max-w-none print:w-full print:space-y-0">
+                  {/* EDITABLE DRAFT HELPER BANNER (Visible until sending) */}
+                  {!isAlreadySent && onEditCorrespondence && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-50/90 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-950 print:hidden shadow-2xs">
+                      <div className="flex items-center gap-2.5">
+                        <Info className="h-4 w-4 text-blue-700 shrink-0" />
                         <div>
-                          <div className="h-12 w-44 mb-1.5">
-                            <PjmakLogo variant="full" size="md" />
-                          </div>
-                          <p className="text-xs font-bold text-purple-900 uppercase tracking-widest mt-1">
-                            INTERNAL MEMORANDUM (IC)
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                            Reference Number
-                          </div>
-                          <div className="font-mono text-sm font-bold text-slate-900">
-                            {correspondence.correspondenceNumber}
-                          </div>
-                          <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                            Date: {correspondence.officialDate}
-                          </div>
+                          <span className="font-bold">Editable Draft: </span>
+                          <span>You can edit this letter draft anytime until sending. When dispatched, it will automatically be dated with the sending day ({effectiveDate}).</span>
                         </div>
                       </div>
-
-                      {/* Internal Memo From / To */}
-                      <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 text-xs">
-                        <div className="space-y-1">
-                          <p className="text-slate-500 font-semibold">
-                            <strong>FROM:</strong> {correspondence.originDepartmentName || correspondence.senderDept || 'Engineering Department'}
-                          </p>
-                          <p className="text-slate-700">
-                            <strong>Originating Officer:</strong> {correspondence.senderPerson || correspondence.createdByUserName}
-                          </p>
-                        </div>
-                        <div className="space-y-1 text-right">
-                          <p className="text-slate-500 font-semibold">
-                            <strong>TO:</strong> {correspondence.destinationDepartmentName || correspondence.recipientDept || 'Project Controls Department'}
-                          </p>
-                          <p className="text-slate-700">
-                            <strong>Action Officer:</strong> {correspondence.recipientPerson || correspondence.assignedUserName || 'Designated Officer'}
-                          </p>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onEditCorrespondence(correspondence)}
+                        className="px-3.5 py-1.5 bg-blue-900 hover:bg-blue-950 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs shrink-0 self-start sm:self-center"
+                      >
+                        <Edit3 className="h-3.5 w-3.5 text-blue-200" />
+                        <span>Edit Letter Draft</span>
+                      </button>
                     </div>
-                  ) : (
-                    /* External Letterhead (Incoming or Outgoing) */
-                    <div className="border-b-2 border-slate-900 pb-5 mb-6 font-sans">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div>
-                          <div className="h-12 w-44">
-                            <PjmakLogo variant="full" size="md" />
+                  )}
+
+                  {/* OFFICIAL LETTER SHEET */}
+                  <div id="official-letter-sheet" className="bg-white p-8 sm:p-14 rounded-xl border border-slate-300 shadow-md w-full font-serif text-slate-800 space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:w-full print:max-w-none">
+                    {/* Top of Letter: Clean PJMAK Logo & Document Reference (NO address/KvK at top) */}
+                    {isInternal ? (
+                      <div className="border-b-2 border-slate-900 pb-5 mb-6 font-sans">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="h-12 w-44 mb-1.5">
+                              <PjmakLogo variant="full" size="md" />
+                            </div>
+                            <p className="text-xs font-bold text-purple-900 uppercase tracking-widest mt-1">
+                              INTERNAL MEMORANDUM (IC)
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                              Reference Number
+                            </div>
+                            <div className="font-mono text-sm font-bold text-slate-900">
+                              {correspondence.correspondenceNumber}
+                            </div>
+                            <div className="text-xs text-slate-700 font-medium mt-0.5">
+                              <span className="font-bold">Date: </span>
+                              <span>{effectiveDate}</span>
+                              {!isAlreadySent && (
+                                <span className="ml-1 text-[10px] text-amber-800 font-normal print:hidden">
+                                  (Send: {effectiveDate})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right shrink-0 font-sans space-y-1">
-                          <div className="text-xs">
-                            <span className="font-bold text-slate-700">Our Ref: </span>
-                            <span className="font-mono font-bold text-slate-900">{correspondence.correspondenceNumber}</span>
+
+                        {/* Internal Memo From / To */}
+                        <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 text-xs">
+                          <div className="space-y-1">
+                            <p className="text-slate-500 font-semibold">
+                              <strong>FROM:</strong> {correspondence.originDepartmentName || correspondence.senderDept || 'Engineering Department'}
+                            </p>
+                            <p className="text-slate-700">
+                              <strong>Originating Officer:</strong> {correspondence.senderPerson || correspondence.createdByUserName}
+                            </p>
                           </div>
-                          <div className="text-xs text-slate-700">
-                            <span className="font-bold">Date: </span>
-                            <span>{correspondence.officialDate}</span>
+                          <div className="space-y-1 text-right">
+                            <p className="text-slate-500 font-semibold">
+                              <strong>TO:</strong> {correspondence.destinationDepartmentName || correspondence.recipientDept || 'Project Controls Department'}
+                            </p>
+                            <p className="text-slate-700">
+                              <strong>Action Officer:</strong> {correspondence.recipientPerson || correspondence.assignedUserName || 'Designated Officer'}
+                            </p>
                           </div>
-                          <div className="text-xs text-slate-700">
-                            <span className="font-bold">Attachment: </span>
-                            <span className={totalAttachments > 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}>
-                              {totalAttachments > 0 ? `Yes (${totalAttachments})` : 'No'}
-                            </span>
-                          </div>
-                          {correspondence.externalRefNumber && (
-                            <div className="text-xs text-slate-600 font-mono">
-                              <span className="font-bold font-sans text-slate-700">Your Ref: </span>
-                              <span>{correspondence.externalRefNumber}</span>
-                            </div>
-                          )}
                         </div>
                       </div>
+                    ) : (
+                      /* External Letterhead (Incoming or Outgoing) */
+                      <div className="border-b-2 border-slate-900 pb-5 mb-6 font-sans">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div>
+                            <div className="h-12 w-44">
+                              <PjmakLogo variant="full" size="md" />
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 font-sans space-y-1">
+                            <div className="text-xs">
+                              <span className="font-bold text-slate-700">Our Ref: </span>
+                              <span className="font-mono font-bold text-slate-900">{correspondence.correspondenceNumber}</span>
+                            </div>
+                            <div className="text-xs text-slate-700">
+                              <span className="font-bold">Date: </span>
+                              <span className="font-medium text-slate-900">{effectiveDate}</span>
+                              {!isAlreadySent && (
+                                <span className="ml-1.5 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium print:hidden">
+                                  (Sending date: {effectiveDate})
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-700">
+                              <span className="font-bold">Attachment: </span>
+                              <span className={totalAttachments > 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}>
+                                {totalAttachments > 0 ? `Yes (${totalAttachments})` : 'No'}
+                              </span>
+                            </div>
+                            {correspondence.externalRefNumber && (
+                              <div className="text-xs text-slate-600 font-mono">
+                                <span className="font-bold font-sans text-slate-700">Your Ref: </span>
+                                <span>{correspondence.externalRefNumber}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
 
                       {/* Addressee Info: Left top side with larger recipient font matching company name size */}
                       <div className="mt-5 pt-3 border-t border-slate-200 text-xs space-y-1">
@@ -993,6 +1052,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                   <div className="font-sans text-[10px] text-slate-400 text-center pt-8 mt-8 border-t border-slate-200">
                     {settings.footerText || "PJMAK Company • KvK 91081289 • Van Grobbendoncklaan 179, 5213 AV 's-Hertogenbosch, the Netherlands • Tel: +31 610 26 95 54"}
                   </div>
+                </div>
                 </div>
               )}
             </div>

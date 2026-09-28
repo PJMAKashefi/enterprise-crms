@@ -336,6 +336,8 @@ export interface Correspondence {
   versions: CorrespondenceVersion[];
 
   // Sending metadata & Email Integration
+  dateSent?: string; // YYYY-MM-DD - exact date when the letter was dispatched/sent
+  autoUpdateDateOnSend?: boolean;
   sentAt?: string;
   sentVia?: 'email' | 'manual' | 'courier' | 'internal';
   emailStatus?: 'none' | 'drafted' | 'sent';

@@ -31,6 +31,7 @@ import {
   Mail,
   ArrowLeft,
   Trash2,
+  Edit3,
 } from 'lucide-react';
 import { Correspondence, Department, User, CompanySettings } from '../types';
 import { generateCorrespondencePdf } from '../utils/pdfGenerator';
@@ -46,6 +47,7 @@ interface RegisterViewProps {
   onNew: (typeOverride?: 'incoming' | 'outgoing' | 'internal') => void;
   onDistributeInternal?: (item: Correspondence) => void;
   onReply?: (item: Correspondence) => void;
+  onEditCorrespondence?: (item: Correspondence) => void;
   onSendEmail?: (item: Correspondence) => void;
   onVoidNumber?: (reason: string) => Promise<void>;
   onDeleteCorrespondence?: (item: Correspondence) => Promise<void> | void;
@@ -65,6 +67,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
   onNew,
   onDistributeInternal,
   onReply,
+  onEditCorrespondence,
   onSendEmail,
   onVoidNumber,
   onDeleteCorrespondence,
@@ -851,6 +854,17 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                     >
                       View
                     </button>
+                    {onEditCorrespondence && item.status !== 'sent' && item.status !== 'issued' && item.status !== 'voided' && (
+                      <button
+                        type="button"
+                        onClick={() => onEditCorrespondence(item)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100/70 hover:bg-blue-200/80 rounded-lg flex items-center gap-1"
+                        title="Edit draft correspondence"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                        <span>Edit</span>
+                      </button>
+                    )}
                     {settings && (
                       <button
                         type="button"
@@ -1197,6 +1211,19 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                             <Mail className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        {onEditCorrespondence && item.status !== 'sent' && item.status !== 'issued' && item.status !== 'voided' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditCorrespondence(item);
+                            }}
+                            className="p-1.5 rounded-md hover:bg-blue-100 text-blue-700 hover:text-blue-900 transition-colors cursor-pointer"
+                            title="Edit Letter Draft (Allowed before sending)"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1266,6 +1293,21 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
               <Eye className="h-3.5 w-3.5 text-sky-600" />
               <span>Open Workspace</span>
             </button>
+
+            {/* Edit Draft */}
+            {onEditCorrespondence && contextMenu.item.status !== 'sent' && contextMenu.item.status !== 'issued' && contextMenu.item.status !== 'voided' && (
+              <button
+                type="button"
+                onClick={() => {
+                  onEditCorrespondence(contextMenu.item);
+                  setContextMenu(null);
+                }}
+                className="w-full px-3 py-1.5 text-left hover:bg-blue-50 flex items-center gap-2.5 cursor-pointer text-blue-900 font-semibold"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-blue-700" />
+                <span>Edit Letter Draft</span>
+              </button>
+            )}
 
             {/* 2. Reply */}
             {onReply && contextMenu.item.status !== 'voided' && (

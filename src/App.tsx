@@ -84,6 +84,8 @@ export default function App() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorType, setEditorType] = useState<CorrespondenceType>('outgoing');
   const [replyToItem, setReplyToItem] = useState<Correspondence | null>(null);
+  const [editingCorrespondence, setEditingCorrespondence] =
+    useState<Correspondence | null>(null);
   const [forwardModalItem, setForwardModalItem] =
     useState<Correspondence | null>(null);
   const [emailModalItem, setEmailModalItem] =
@@ -175,21 +177,45 @@ export default function App() {
     }
   };
 
-  // Create new correspondence
+  // Open editor in edit mode for draft/unsent correspondence
+  const handleEditCorrespondence = (item: Correspondence) => {
+    setEditingCorrespondence(item);
+    setEditorType(item.type);
+    setReplyToItem(null);
+    setEditorOpen(true);
+  };
+
+  // Create or Update correspondence
   const handleSaveCorrespondence = async (data: Partial<Correspondence>) => {
-    const res = await fetch('/api/correspondence', {
-      method: 'POST',
+    const isEdit = Boolean(editingCorrespondence?.id || data.id);
+    const targetId = editingCorrespondence?.id || data.id;
+
+    const url = isEdit ? `/api/correspondence/${targetId}` : '/api/correspondence';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Failed to save correspondence');
+      throw new Error(err.error || `Failed to ${isEdit ? 'update' : 'save'} correspondence`);
     }
-    const created: Correspondence = await res.json();
-    setCorrespondence((prev) => [created, ...prev]);
+    const saved: Correspondence = await res.json();
+    if (isEdit) {
+      setCorrespondence((prev) =>
+        prev.map((c) => (c.id === saved.id ? saved : c))
+      );
+      if (selectedCorrespondence?.id === saved.id) {
+        setSelectedCorrespondence(saved);
+      }
+    } else {
+      setCorrespondence((prev) => [saved, ...prev]);
+    }
 
-    // refresh logs & tasks
+    setEditingCorrespondence(null);
+    setEditorOpen(false);
     fetchData();
   };
 
@@ -629,14 +655,17 @@ export default function App() {
                         : 'outgoing')
                   );
                   setReplyToItem(null);
+                  setEditingCorrespondence(null);
                   setEditorOpen(true);
                 }}
                 onDistributeInternal={(item) => setForwardModalItem(item)}
                 onReply={(item) => {
                   setEditorType(item.type === 'incoming' ? 'outgoing' : 'internal');
                   setReplyToItem(item);
+                  setEditingCorrespondence(null);
                   setEditorOpen(true);
                 }}
+                onEditCorrespondence={handleEditCorrespondence}
                 onSendEmail={(item) => setEmailModalItem(item)}
                 onVoidNumber={handleVoidNumber}
                 onDeleteCorrespondence={handleDeleteCorrespondence}
@@ -721,22 +750,26 @@ export default function App() {
                   onNewOutgoing={() => {
                     setEditorType('outgoing');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onRegisterIncoming={() => {
                     setEditorType('incoming');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onNewInternal={() => {
                     setEditorType('internal');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onDistributeInternal={(item) => setForwardModalItem(item)}
                   onReply={(item) => {
                     setEditorType('outgoing');
                     setReplyToItem(item);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onSendEmail={(item) => setEmailModalItem(item)}
@@ -762,14 +795,17 @@ export default function App() {
                   onNew={(typeOverride) => {
                     setEditorType(typeOverride || 'outgoing');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onDistributeInternal={(item) => setForwardModalItem(item)}
                   onReply={(item) => {
                     setEditorType('outgoing');
                     setReplyToItem(item);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
+                  onEditCorrespondence={handleEditCorrespondence}
                   onSendEmail={(item) => setEmailModalItem(item)}
                   onVoidNumber={handleVoidNumber}
                   onDeleteCorrespondence={handleDeleteCorrespondence}
@@ -808,14 +844,17 @@ export default function App() {
                   onNew={() => {
                     setEditorType('incoming');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onDistributeInternal={(item) => setForwardModalItem(item)}
                   onReply={(item) => {
                     setEditorType('outgoing');
                     setReplyToItem(item);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
+                  onEditCorrespondence={handleEditCorrespondence}
                   onSendEmail={(item) => setEmailModalItem(item)}
                   onVoidNumber={handleVoidNumber}
                   onDeleteCorrespondence={handleDeleteCorrespondence}
@@ -840,14 +879,17 @@ export default function App() {
                   onNew={() => {
                     setEditorType('outgoing');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onDistributeInternal={(item) => setForwardModalItem(item)}
                   onReply={(item) => {
                     setEditorType('outgoing');
                     setReplyToItem(item);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
+                  onEditCorrespondence={handleEditCorrespondence}
                   onSendEmail={(item) => setEmailModalItem(item)}
                   onVoidNumber={handleVoidNumber}
                   onDeleteCorrespondence={handleDeleteCorrespondence}
@@ -872,14 +914,17 @@ export default function App() {
                   onNew={() => {
                     setEditorType('internal');
                     setReplyToItem(null);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
                   onDistributeInternal={(item) => setForwardModalItem(item)}
                   onReply={(item) => {
                     setEditorType('internal');
                     setReplyToItem(item);
+                    setEditingCorrespondence(null);
                     setEditorOpen(true);
                   }}
+                  onEditCorrespondence={handleEditCorrespondence}
                   onSendEmail={(item) => setEmailModalItem(item)}
                   onVoidNumber={handleVoidNumber}
                   onDeleteCorrespondence={handleDeleteCorrespondence}
@@ -995,7 +1040,11 @@ export default function App() {
           settings={settings}
           templates={templates}
           replyToItem={replyToItem}
-          onClose={() => setEditorOpen(false)}
+          editItem={editingCorrespondence}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditingCorrespondence(null);
+          }}
           onSave={handleSaveCorrespondence}
           onCreateContact={handleCreateContact}
         />
@@ -1020,8 +1069,10 @@ export default function App() {
           onReply={(item) => {
             setEditorType(item.type === 'incoming' ? 'outgoing' : 'internal');
             setReplyToItem(item);
+            setEditingCorrespondence(null);
             setEditorOpen(true);
           }}
+          onEditCorrespondence={handleEditCorrespondence}
           onTransitionStatus={handleTransitionStatus}
           onUpdateOfficialDate={handleUpdateOfficialDate}
           onVoidNumber={handleVoidNumber}
