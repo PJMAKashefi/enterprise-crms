@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Share2,
@@ -19,30 +19,127 @@ import {
   Download,
   Printer,
   FileCheck,
+  FileText,
+  AlertCircle,
+  FolderOpen,
+  Upload,
 } from 'lucide-react';
-import { TechnicalDocument, DocumentShare } from '../types';
+import type { TechnicalDocument, DocumentShare, User as AppUser } from '../types';
 
 interface ShareDocumentModalProps {
-  document: TechnicalDocument;
+  document?: TechnicalDocument | null;
+  documents?: TechnicalDocument[];
+  currentUser?: AppUser | null;
+  isOpen?: boolean;
   onClose: () => void;
-  onShareCreated: (newShare: DocumentShare) => void;
+  onShareCreated?: (newShare?: DocumentShare) => void;
 }
 
 export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
   document,
+  documents = [],
   onClose,
   onShareCreated,
 }) => {
+  const [selectedDocId, setSelectedDocId] = useState<string>(
+    document?.id || (documents && documents[0]?.id) || ''
+  );
+
+  // Sync selectedDocId when document or documents list updates
+  useEffect(() => {
+    if (document?.id) {
+      setSelectedDocId(document.id);
+    } else if (documents && documents.length > 0 && !selectedDocId) {
+      setSelectedDocId(documents[0].id);
+    }
+  }, [document?.id, documents]);
+
+  const activeDoc = useMemo(() => {
+    if (selectedDocId && documents.length > 0) {
+      const found = documents.find((d) => d.id === selectedDocId);
+      if (found) return found;
+    }
+    return document || (documents && documents[0]) || null;
+  }, [selectedDocId, documents, document]);
+
   const [selectedRevision, setSelectedRevision] = useState<string>(
-    document.currentRevision || (document.revisions?.[0]?.revision ?? 'Rev 0')
+    activeDoc?.currentRevision || (activeDoc?.revisions?.[0]?.revision ?? 'Rev 0')
   );
 
   // Recipient details
   const [recipientName, setRecipientName] = useState('');
-  const [recipientCompany, setRecipientCompany] = useState(document.clientCompany || '');
+  const [recipientCompany, setRecipientCompany] = useState(activeDoc?.clientCompany || '');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientUsername, setRecipientUsername] = useState('');
   const [recipientPassword, setRecipientPassword] = useState('Review2026!');
+
+  // Local file browser upload state
+  const [isUploadingLocalFile, setIsUploadingLocalFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  const handleQuickUploadProposal = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingLocalFile(true);
+    setError(null);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const res = await fetch('/api/documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: cleanTitle,
+              documentType: 'PRP',
+              discipline: 'TEC',
+              originator: 'PJMAK',
+              projectCode: 'PRJ-2026-01',
+              projectName: 'Engineering Project',
+              clientCompany: recipientCompany || 'External Client',
+              currentRevision: 'Rev 0',
+              reasonForIssue: 'Tender / Proposal Submission',
+              reviewStatus: 'under_review',
+              fileName: file.name,
+              fileFormat: ext,
+              fileUrl: typeof reader.result === 'string' ? reader.result : '',
+            }),
+          });
+          if (res.ok) {
+            const newDoc: TechnicalDocument = await res.json();
+            setSelectedDocId(newDoc.id);
+            setUploadedFileName(file.name);
+            setSelectedRevision('Rev 0');
+            if (newDoc.clientCompany) setRecipientCompany(newDoc.clientCompany);
+          }
+        } catch (uploadErr) {
+          console.error('Failed to create proposal from file', uploadErr);
+        } finally {
+          setIsUploadingLocalFile(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setError('Failed to read proposal file: ' + err.message);
+      setIsUploadingLocalFile(false);
+    }
+  };
+
+  // Sync revision and company when activeDoc changes
+  useEffect(() => {
+    if (activeDoc) {
+      setSelectedRevision(
+        activeDoc.currentRevision || (activeDoc.revisions?.[0]?.revision ?? 'Rev 0')
+      );
+      if (activeDoc.clientCompany) {
+        setRecipientCompany(activeDoc.clientCompany);
+      }
+    }
+  }, [activeDoc?.id]);
 
   // Schedule details
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -99,6 +196,10 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeDoc) {
+      setError('Please select a proposal or technical document to share.');
+      return;
+    }
     if (!recipientName.trim() || !recipientEmail.trim()) {
       setError('Please provide recipient name and a valid email address.');
       return;
@@ -112,7 +213,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documentId: document.id,
+          documentId: activeDoc.id,
           selectedRevision,
           recipientName: recipientName.trim(),
           recipientCompany: recipientCompany.trim(),
@@ -152,7 +253,9 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
           password: resData.externalUser.password,
         },
       });
-      onShareCreated(resData.share);
+      if (onShareCreated) {
+        onShareCreated(resData.share);
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred while creating document share.');
     } finally {
@@ -196,14 +299,14 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                 Share Document for Controlled External Review
               </h2>
               <p className="text-xs text-slate-500 font-mono">
-                {document.documentNumber} • {document.title}
+                {activeDoc ? `${activeDoc.documentNumber} • ${activeDoc.title}` : 'Select Proposal or Technical Document'}
               </p>
             </div>
           </div>
           <button
             id="close-share-modal-btn"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -211,7 +314,22 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {createdResult ? (
+          {!activeDoc ? (
+            <div className="p-8 text-center space-y-3">
+              <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800">No Technical Document or Proposal Available</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Please create or register a proposal or document in the Technical Register first before issuing an external share invitation.
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          ) : createdResult ? (
             /* Success State */
             <div className="space-y-6 py-2">
               <div className="p-5 bg-teal-50 border border-teal-200 rounded-xl text-center space-y-2">
@@ -308,6 +426,69 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                 </div>
               )}
 
+              {/* 0. Document Selection & Local File Browser */}
+              <div className="bg-teal-50/80 border border-teal-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label className="text-xs font-bold uppercase tracking-wider text-teal-900 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-teal-700" />
+                    <span>Select Proposal / Technical Document to Share</span>
+                  </label>
+                  
+                  {/* Local File Browser Button */}
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-white border border-teal-300 hover:bg-teal-100/60 px-3 py-1.5 rounded-lg cursor-pointer shadow-2xs transition-colors">
+                    <FolderOpen className="w-4 h-4 text-teal-600" />
+                    <span>Browse & Upload File from Computer (.pdf, .docx)...</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.dwg"
+                      className="hidden"
+                      onChange={handleQuickUploadProposal}
+                      disabled={isUploadingLocalFile}
+                    />
+                  </label>
+                </div>
+
+                {isUploadingLocalFile && (
+                  <div className="p-2.5 bg-white rounded-lg border border-teal-300 text-xs text-teal-800 flex items-center gap-2">
+                    <Clock className="w-4 h-4 animate-spin text-teal-600 shrink-0" />
+                    <span>Uploading and attaching proposal file from your computer...</span>
+                  </div>
+                )}
+
+                {uploadedFileName && (
+                  <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Uploaded & Selected: <strong>{uploadedFileName}</strong> (Registered in EDMS)</span>
+                  </div>
+                )}
+
+                {/* Dropdown if multiple documents exist */}
+                {documents && documents.length > 0 ? (
+                  <div>
+                    <select
+                      value={selectedDocId}
+                      onChange={(e) => setSelectedDocId(e.target.value)}
+                      className="w-full text-xs font-semibold bg-white border border-teal-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                    >
+                      {documents.map((d, index) => (
+                        <option key={d.id || `doc-${d.documentNumber || index}`} value={d.id}>
+                          {d.documentNumber} — {d.title} ({d.clientCompany || 'External Client'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : activeDoc ? (
+                  <div className="p-3 bg-white rounded-lg border border-teal-200">
+                    <span className="font-mono text-xs font-bold text-slate-900 block">{activeDoc.documentNumber}</span>
+                    <span className="text-xs text-slate-600 block">{activeDoc.title}</span>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    No proposals found in database. Click "Browse & Upload File from Computer" above to select a PDF or Word proposal!
+                  </div>
+                )}
+              </div>
+
               {/* 1. Revision Selection */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -318,18 +499,18 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                   <span className="text-xs text-slate-500">
                     Current EDMS Status:{' '}
                     <span className="font-semibold text-slate-700">
-                      {(document.reviewStatus || 'under_review').replace(/_/g, ' ').toUpperCase()}
+                      {(activeDoc.reviewStatus || 'under_review').replace(/_/g, ' ').toUpperCase()}
                     </span>
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {document.revisions && document.revisions.length > 0 ? (
-                    document.revisions.map((rev) => (
+                  {activeDoc.revisions && activeDoc.revisions.length > 0 ? (
+                    activeDoc.revisions.map((rev, revIdx) => (
                       <button
-                        key={rev.id}
+                        key={rev.id || `rev-${rev.revision || 'unknown'}-${revIdx}`}
                         type="button"
                         onClick={() => setSelectedRevision(rev.revision)}
-                        className={`p-2.5 rounded-lg border text-left transition-all ${
+                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                           selectedRevision === rev.revision
                             ? 'border-teal-600 bg-teal-50/70 text-teal-900 shadow-2xs ring-1 ring-teal-600'
                             : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
@@ -342,7 +523,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                     ))
                   ) : (
                     <div className="col-span-full p-2 text-xs text-slate-500">
-                      Single Revision: {document.currentRevision || 'Rev 0'}
+                      Single Revision: {activeDoc.currentRevision || 'Rev 0'}
                     </div>
                   )}
                 </div>
@@ -352,9 +533,9 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                     id="allowLaterRevisions"
                     checked={allowLaterRevisions}
                     onChange={(e) => setAllowLaterRevisions(e.target.checked)}
-                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
                   />
-                  <label htmlFor="allowLaterRevisions" className="text-xs text-slate-600">
+                  <label htmlFor="allowLaterRevisions" className="text-xs text-slate-600 cursor-pointer">
                     Automatically grant access to future revisions if re-issued during this review window
                   </label>
                 </div>
@@ -485,7 +666,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                         const active = workingDays.includes(d.val);
                         return (
                           <button
-                            key={d.val}
+                            key={`day-${d.val}`}
                             type="button"
                             onClick={() => toggleDay(d.val)}
                             className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
@@ -647,7 +828,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                   ) : (
                     <>
                       <Share2 className="w-4 h-4" />
-                      <span>Issue Controlled Access Invitation</span>
+                      <span>Generate & Issue Controlled Access Invitation</span>
                     </>
                   )}
                 </button>

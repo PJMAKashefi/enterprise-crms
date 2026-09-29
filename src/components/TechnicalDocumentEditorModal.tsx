@@ -48,6 +48,7 @@ import {
   Superscript,
   FileCode,
   Users,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   TechnicalDocument,
@@ -69,6 +70,7 @@ interface TechnicalDocumentEditorModalProps {
   onClose: () => void;
   onSave: (updatedDoc: TechnicalDocument) => Promise<void>;
   onRefreshData?: () => void;
+  onShareDocument?: (doc: TechnicalDocument) => void;
 }
 
 export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModalProps> = ({
@@ -77,6 +79,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
   onClose,
   onSave,
   onRefreshData,
+  onShareDocument,
 }) => {
   // Document state with clean, non-hardcoded defaults
   const [doc, setDoc] = useState<TechnicalDocument>(() => {
@@ -689,6 +692,22 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               <Save className="h-3.5 w-3.5" />
               <span>{isSaving ? 'Saving...' : 'Save Document'}</span>
             </button>
+
+            {/* Share Securely Button */}
+            {onShareDocument && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSave();
+                  onShareDocument(doc);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-900 bg-teal-50 border border-teal-300 rounded-lg hover:bg-teal-100 transition-colors shadow-2xs cursor-pointer"
+                title="Save and create a 3-day secure external share invitation for this proposal"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-teal-700 stroke-[2.5]" />
+                <span>Share Securely</span>
+              </button>
+            )}
 
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}

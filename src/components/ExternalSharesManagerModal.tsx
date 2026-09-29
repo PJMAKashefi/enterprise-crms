@@ -23,30 +23,42 @@ import {
   Ban,
   FileCheck,
 } from 'lucide-react';
-import {
+import type {
   DocumentShare,
   DocumentComment,
   TechnicalDocument,
   ExternalAccessAuditLog,
   ExtensionRequest,
+  User as AppUser,
 } from '../types';
 import { formatScheduleDisplay } from '../utils/accessSchedule';
 
 interface ExternalSharesManagerModalProps {
+  isOpen?: boolean;
   onClose: () => void;
-  onOpenNewShare: () => void;
+  onOpenNewShare?: () => void;
   onSelectDocumentForViewer?: (shareId: string) => void;
-  technicalDocuments: TechnicalDocument[];
+  onOpenExternalViewer?: (shareId: string) => void;
+  technicalDocuments?: TechnicalDocument[];
+  documents?: TechnicalDocument[];
   onRefreshDocuments?: () => void;
+  onRefreshData?: () => void;
+  currentUser?: AppUser;
 }
 
 export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProps> = ({
   onClose,
   onOpenNewShare,
   onSelectDocumentForViewer,
+  onOpenExternalViewer,
   technicalDocuments,
+  documents,
   onRefreshDocuments,
+  onRefreshData,
 }) => {
+  const handleOpenViewer = onSelectDocumentForViewer || onOpenExternalViewer;
+  const handleRefresh = onRefreshDocuments || onRefreshData;
+  const docsList = technicalDocuments || documents || [];
   const [shares, setShares] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
@@ -504,9 +516,9 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
                         <span>{copiedShareId === selectedShare.id ? 'Copied!' : 'Copy Review Link'}</span>
                       </button>
 
-                      {onSelectDocumentForViewer && (
+                      {handleOpenViewer && (
                         <button
-                          onClick={() => onSelectDocumentForViewer(selectedShare.id)}
+                          onClick={() => handleOpenViewer(selectedShare.id)}
                           className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />

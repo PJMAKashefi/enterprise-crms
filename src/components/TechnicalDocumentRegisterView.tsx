@@ -36,6 +36,8 @@ import {
   ArrowLeft,
   Printer,
   Sparkles,
+  FolderOpen,
+  Upload,
 } from 'lucide-react';
 import {
   TechnicalDocument,
@@ -160,6 +162,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [documentToShare, setDocumentToShare] = useState<TechnicalDocument | null>(null);
   const [isExternalSharesModalOpen, setIsExternalSharesModalOpen] = useState(false);
+  const [postCreateDoc, setPostCreateDoc] = useState<TechnicalDocument | null>(null);
 
   // Client Selection & Auto-Coding State
   const [isAddingNewClient, setIsAddingNewClient] = useState(false);
@@ -199,6 +202,9 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     contractNumber: '', // Blank by default, especially for proposals
     supplierName: '',
     transmittalLetterNumber: '',
+    fileName: '',
+    fileFormat: 'pdf',
+    fileUrl: '',
   });
 
   // Revision Form State
@@ -413,15 +419,35 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
         const createdDoc = await res.json();
         setIsCreateModalOpen(false);
         if (onRefreshData) onRefreshData();
-        // Immediately open the newly created document in the Word-style workspace!
-        setEditingDoc(createdDoc);
-        setIsEditorModalOpen(true);
+        // Offer choice to share securely or open in Word Studio
+        setPostCreateDoc(createdDoc);
       }
     } catch (err) {
       console.error('Failed to create document:', err);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle local file selection in create form (File Browser)
+  const handleFileSelectInCreateForm = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+    const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewForm((prev) => ({
+        ...prev,
+        fileName: file.name,
+        fileFormat: ext,
+        fileUrl: typeof reader.result === 'string' ? reader.result : '',
+        title: prev.title.trim() ? prev.title : cleanTitle,
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   // Handle add revision
@@ -1872,6 +1898,48 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
 
               {/* Title & Scope */}
               <div className="space-y-3">
+                {/* File Browser Upload */}
+                <div className="p-3.5 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Upload className="w-4 h-4 text-blue-900" />
+                      <span>Upload Local Document / Proposal File (PDF, Word DOCX, DWG)</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-medium">Browse from your computer</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/30 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-2xs transition-colors">
+                      <FolderOpen className="w-4 h-4 text-blue-800" />
+                      <span>{newForm.fileName ? `File Selected: ${newForm.fileName}` : 'Browse File from Computer (.pdf, .docx, .dwg)...'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.dwg,.xls,.xlsx,.zip"
+                        className="hidden"
+                        onChange={handleFileSelectInCreateForm}
+                      />
+                    </label>
+
+                    {newForm.fileName && (
+                      <button
+                        type="button"
+                        onClick={() => setNewForm({ ...newForm, fileName: '', fileFormat: 'pdf', fileUrl: '' })}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Remove attached file"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {newForm.fileName && (
+                    <div className="flex items-center gap-2 text-[11px] text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Attached file: <strong className="font-mono">{newForm.fileName}</strong> ({newForm.fileFormat?.toUpperCase()})</span>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Document Title *</label>
                   <input
@@ -2387,9 +2455,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
       )}
 
       {/* MODAL: Controlled External Document Share */}
-      {isShareModalOpen && documentToShare && (
+      {isShareModalOpen && (
         <ShareDocumentModal
-          document={documentToShare}
+          document={documentToShare || selectedDoc || (documents && documents[0]) || null}
+          documents={documents}
           currentUser={currentUser}
           isOpen={isShareModalOpen}
           onClose={() => {
@@ -2409,8 +2478,16 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           onClose={() => setIsExternalSharesModalOpen(false)}
           currentUser={currentUser}
           documents={documents}
+          technicalDocuments={documents}
+          onOpenNewShare={() => {
+            setIsExternalSharesModalOpen(false);
+            setDocumentToShare(selectedDoc || (documents && documents[0]) || null);
+            setIsShareModalOpen(true);
+          }}
           onRefreshData={onRefreshData}
+          onRefreshDocuments={onRefreshData}
           onOpenExternalViewer={onOpenExternalViewer}
+          onSelectDocumentForViewer={onOpenExternalViewer}
         />
       )}
 
@@ -2426,6 +2503,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
             setEditingDoc(null);
           }}
           onSave={handleSaveEditedDoc}
+          onShareDocument={(doc) => {
+            setDocumentToShare(doc);
+            setIsShareModalOpen(true);
+          }}
         />
       )}
 
@@ -2474,10 +2555,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
               setIsShareModalOpen(true);
               setContextMenu(null);
             }}
-            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 font-medium transition-colors cursor-pointer"
+            className="w-full px-3 py-2 text-left hover:bg-teal-50 text-teal-800 flex items-center gap-2 font-bold transition-colors cursor-pointer"
           >
-            <Share2 className="h-4 w-4 text-teal-600" />
-            <span>Controlled External Share</span>
+            <ShieldCheck className="h-4 w-4 text-teal-600 stroke-[2.5]" />
+            <span>Share Document Securely (3-Day / Expiry)</span>
           </button>
 
           <button
@@ -2516,6 +2597,60 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
             <Trash2 className="h-4 w-4 text-rose-500" />
             <span>Delete Document</span>
           </button>
+        </div>
+      )}
+
+      {/* POST-CREATION ACTION PROMPT: Share Securely or Open Studio */}
+      {postCreateDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Document Successfully Created</h3>
+              <p className="font-mono text-xs font-semibold text-blue-900 mt-1">{postCreateDoc.documentNumber}</p>
+              <p className="text-xs text-slate-500 mt-1">{postCreateDoc.title}</p>
+            </div>
+            <p className="text-xs text-slate-600 bg-slate-50 rounded-xl p-3 border border-slate-200">
+              Would you like to share this proposal/document securely with external recipients now, or open it in the Word Studio editor?
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = postCreateDoc;
+                  setPostCreateDoc(null);
+                  setDocumentToShare(target);
+                  setIsShareModalOpen(true);
+                }}
+                className="px-3.5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
+                <span>Share Securely</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = postCreateDoc;
+                  setPostCreateDoc(null);
+                  setEditingDoc(target);
+                  setIsEditorModalOpen(true);
+                }}
+                className="px-3.5 py-2.5 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Open in Studio</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPostCreateDoc(null)}
+              className="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
     </div>

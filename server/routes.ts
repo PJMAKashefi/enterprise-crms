@@ -3722,6 +3722,10 @@ apiRouter.post('/external-shares', (req: Request, res: Response) => {
       email: extUser.email,
       password: extUser.password,
     },
+    credentials: {
+      username: extUser.username,
+      password: extUser.password,
+    },
     accessUrl: `/?ext_share=${shareToken}`,
   });
 });
