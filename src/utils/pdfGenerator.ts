@@ -24,7 +24,7 @@ export function generateCorrespondencePdf(
   // Compute effective date:
   // "For example, when I draft a letter today, but I will finally send it after 2 days, the day that I am sending it should be written on the letter."
   const todayStr = new Date().toISOString().split('T')[0];
-  const isAlreadySent = correspondence.status === 'sent' || correspondence.status === 'issued';
+  const isAlreadySent = correspondence.status === 'sent';
   const effectiveDate = isAlreadySent
     ? (correspondence.dateSent || correspondence.officialDate || todayStr)
     : (correspondence.officialDate && correspondence.officialDate > todayStr
@@ -360,10 +360,6 @@ export function generateCorrespondencePdf(
   }
 
   // --- LETTER BODY (Fully Justified Paragraphs) ---
-  doc.setFont('times', 'normal');
-  doc.setFontSize(10.5);
-  doc.setTextColor(30, 41, 59);
-
   // Split into clean paragraphs and automatically strip any accidental "Formatted text"
   const rawBody = (correspondence.bodyHtml || '')
     .replace(/Formatted text/gi, '')
@@ -378,19 +374,31 @@ export function generateCorrespondencePdf(
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
 
-  const lineHeight = 5.2;
+  // Check if the letter can fit on a single page with professional compact spacing
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9.8);
+  const testLines = paragraphStrings.reduce((acc, p) => acc + doc.splitTextToSize(p, contentWidth).length, 0);
+  const isSinglePageCandidate = testLines <= 38;
+
+  const bodyFontSize = isSinglePageCandidate ? 9.8 : 10.5;
+  const lineHeight = isSinglePageCandidate ? 4.6 : 5.2;
+  const paraSpacing = isSinglePageCandidate ? 2.4 : 3.5;
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(bodyFontSize);
+  doc.setTextColor(30, 41, 59);
 
   for (const para of paragraphStrings) {
     const lines = doc.splitTextToSize(para, contentWidth);
     const paraHeight = lines.length * lineHeight;
 
     // Check for page break
-    if (cursorY + paraHeight > pageHeight - 55) {
+    if (cursorY + paraHeight > pageHeight - (isSinglePageCandidate ? 32 : 55)) {
       addFooter(doc, settings, pageHeight, pageWidth, margin);
       doc.addPage();
       cursorY = margin + 10;
       doc.setFont('times', 'normal');
-      doc.setFontSize(10.5);
+      doc.setFontSize(bodyFontSize);
       doc.setTextColor(30, 41, 59);
     }
 
@@ -400,26 +408,27 @@ export function generateCorrespondencePdf(
       doc.text(para, margin, cursorY, { maxWidth: contentWidth, align: 'left' });
     }
 
-    cursorY += paraHeight + 3.5;
+    cursorY += paraHeight + paraSpacing;
   }
 
-  cursorY += 5;
+  cursorY += isSinglePageCandidate ? 3 : 5;
 
-  // --- SIGNATURE BLOCK ---
-  if (cursorY > pageHeight - 65) {
+  // --- SIGNATURE BLOCK (Compact executive layout) ---
+  const sigBlockHeight = isSinglePageCandidate ? 26 : 42;
+  if (cursorY + sigBlockHeight > pageHeight - 20) {
     addFooter(doc, settings, pageHeight, pageWidth, margin);
     doc.addPage();
     cursorY = margin + 10;
   }
 
   doc.setFont('times', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(isSinglePageCandidate ? 9.5 : 10);
   doc.text(isInternal ? 'Respectfully,' : 'Yours faithfully,', margin, cursorY);
-  cursorY += 5;
+  cursorY += isSinglePageCandidate ? 4 : 5;
 
   doc.setFont('helvetica', 'bold');
   doc.text(settings.companyName, margin, cursorY);
-  cursorY += 10;
+  cursorY += isSinglePageCandidate ? 5 : 8;
 
   // Signature representation
   if (correspondence.signatureIncluded) {
@@ -438,22 +447,25 @@ export function generateCorrespondencePdf(
         signatureImgData = selectedPreset.pngDataUrl;
       }
 
-      // Draw handwritten signature image (38mm width x 18mm height)
-      doc.addImage(signatureImgData, 'PNG', margin, cursorY - 3, 38, 18);
-      cursorY += 16;
+      const sigWidth = isSinglePageCandidate ? 28 : 36;
+      const sigHeight = isSinglePageCandidate ? 11 : 16;
+
+      // Draw handwritten signature image (compact so whole letter fits on 1 page)
+      doc.addImage(signatureImgData, 'PNG', margin, cursorY - 2, sigWidth, sigHeight);
+      cursorY += isSinglePageCandidate ? 11 : 16;
 
       // Subtle cryptographic/authenticated registry mark matching the letter's sending date
       doc.setFont('courier', 'bold');
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
       doc.setTextColor(100, 116, 139);
       doc.text(`[DIGITALLY AUTHENTICATED • REGISTRY SEAL ${effectiveDate}]`, margin, cursorY);
-      cursorY += 5;
+      cursorY += isSinglePageCandidate ? 3.5 : 5;
     } catch (err) {
       console.warn('Signature image embed fallback:', err);
       // Fallback text box if image fails
       doc.setDrawColor(3, 105, 161);
       doc.setLineWidth(0.4);
-      doc.roundedRect(margin, cursorY, 65, 18, 1, 1, 'D');
+      doc.roundedRect(margin, cursorY, 65, 16, 1, 1, 'D');
       doc.setFont('courier', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(3, 105, 161);
@@ -462,21 +474,21 @@ export function generateCorrespondencePdf(
       doc.setFontSize(9);
       doc.setTextColor(15, 23, 42);
       doc.text(correspondence.signatoryName || settings.signature.signatoryName, margin + 4, cursorY + 10);
-      cursorY += 22;
+      cursorY += 18;
     }
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(isSinglePageCandidate ? 9 : 9.5);
   doc.setTextColor(15, 23, 42);
   doc.text(correspondence.signatoryName || settings.signature.signatoryName, margin, cursorY);
-  cursorY += 4;
+  cursorY += isSinglePageCandidate ? 3.5 : 4;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(isSinglePageCandidate ? 8 : 8.5);
   doc.setTextColor(100, 116, 139);
   doc.text(correspondence.signatoryPosition || settings.signature.position, margin, cursorY);
-  cursorY += 8;
+  cursorY += isSinglePageCandidate ? 5 : 8;
 
   // --- ATTACHMENT(S) ENCLOSURES (If present) ---
   const hasAttachments = correspondence.attachments && correspondence.attachments.length > 0;

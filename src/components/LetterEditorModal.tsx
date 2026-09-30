@@ -42,6 +42,7 @@ import {
   Outdent,
   Type,
   Code,
+  Upload,
 } from 'lucide-react';
 import {
   generateClientCode,
@@ -2477,30 +2478,24 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                           <span className="font-semibold text-slate-800 text-[11px] block">
                             Authorized Handwritten Signature
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-slate-500 block">
                             Stamped on official letter stationery & downloaded PDF
                           </span>
+                          {activeSignatureUrl.startsWith('data:image/') ? (
+                            <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              ✓ Your Real Handwritten Signature (Active)
+                            </span>
+                          ) : (
+                            <span className="inline-block mt-1 text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Using Template Sample Cursive (Upload below to use your actual handwriting)
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {SIGNATURE_PRESETS.map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => setActiveSignatureUrl(preset.pngDataUrl || preset.svgUrl)}
-                            className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shadow-2xs ${
-                              activeSignatureUrl === (preset.pngDataUrl || preset.svgUrl) ||
-                              activeSignatureUrl === preset.svgUrl
-                                ? 'bg-blue-900 text-white border-blue-900'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                            }`}
-                          >
-                            {preset.name}
-                          </button>
-                        ))}
-
-                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer">
-                          <span>Browse File...</span>
+                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-900 text-xs font-bold transition-all shadow-2xs cursor-pointer">
+                          <Upload className="h-3.5 w-3.5 text-blue-700" />
+                          <span>Upload My Real Signature (.png, .jpg)</span>
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/svg+xml"
@@ -2512,11 +2507,30 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsEnhancerOpen(true)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sky-300 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold transition-all shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-sky-300 bg-white hover:bg-sky-50 text-sky-800 text-xs font-bold transition-all shadow-2xs"
                         >
                           <Sparkles className="h-3.5 w-3.5 text-sky-600" />
-                          <span>Enhance Photo</span>
+                          <span>Enhance / Clean Photo</span>
                         </button>
+
+                        <div className="h-4 w-px bg-slate-300 mx-1" />
+
+                        {SIGNATURE_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => setActiveSignatureUrl(preset.pngDataUrl || preset.svgUrl)}
+                            className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                              activeSignatureUrl === (preset.pngDataUrl || preset.svgUrl) ||
+                              activeSignatureUrl === preset.svgUrl
+                                ? 'bg-slate-800 text-white border-slate-800'
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            }`}
+                            title="Template Preset"
+                          >
+                            {preset.name}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   )}

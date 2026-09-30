@@ -400,7 +400,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
   const officialAttachments = attachmentsList.filter((a) => !a.isInternal);
   const totalAttachments = attachmentsList.length;
 
-  const isAlreadySent = correspondence.status === 'sent' || correspondence.status === 'issued';
+  const isAlreadySent = correspondence.status === 'sent';
   const todayStr = new Date().toISOString().split('T')[0];
   const effectiveDate = isAlreadySent
     ? (correspondence.dateSent || correspondence.officialDate || todayStr)
@@ -994,6 +994,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                           <div className="py-1">
                             <img
                               src={
+                                correspondence.signatureImageUrl ||
                                 settings.signature?.signatureImageUrl ||
                                 '/assets/signature_kashefi.svg'
                               }
@@ -1004,6 +1005,16 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                           <div className="text-[9px] font-mono text-slate-400">
                             Digitally authenticated • Registry Seal
                           </div>
+                          {!isAlreadySent && onEditCorrespondence && (
+                            <button
+                              type="button"
+                              onClick={() => onEditCorrespondence(correspondence)}
+                              className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold underline mt-1.5 inline-flex items-center gap-1 print:hidden"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                              <span>Upload or Change Handwritten Signature</span>
+                            </button>
+                          )}
                         </div>
                       )}
 
