@@ -171,51 +171,57 @@ export function generateCorrespondencePdf(
     const hasAttachments = correspondence.attachments && correspondence.attachments.length > 0;
     const totalAttachments = correspondence.attachments?.length || 0;
 
-    // Our Ref
+    // Top right metadata block (clean, non-overlapping 2-column layout)
+    const metaBlockWidth = 62;
+    const metaStartX = rightX - metaBlockWidth;
+    const labelColWidth = 24;
+    const valColX = metaStartX + labelColWidth;
+
+    // Our Ref:
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
-    doc.text('Our Ref: ', rightX - doc.getTextWidth(correspondence.correspondenceNumber) - 1, metaY, { align: 'right' });
+    doc.text('Our Ref:', metaStartX, metaY);
     doc.setFont('courier', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
-    doc.text(correspondence.correspondenceNumber, rightX, metaY, { align: 'right' });
-    metaY += 4.5;
+    doc.text(correspondence.correspondenceNumber, valColX, metaY);
+    metaY += 5;
 
-    // Date (effective date of dispatch/send)
+    // Date: (effective date of dispatch/send)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
-    doc.text('Date: ', rightX - doc.getTextWidth(effectiveDate) - 1, metaY, { align: 'right' });
+    doc.text('Date:', metaStartX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(effectiveDate, rightX, metaY, { align: 'right' });
-    metaY += 4.5;
+    doc.text(effectiveDate, valColX, metaY);
+    metaY += 5;
 
-    // Attachment
+    // Attachment:
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
     const attText = totalAttachments > 0 ? `Yes (${totalAttachments})` : 'No';
-    doc.text('Attachment: ', rightX - doc.getTextWidth(attText) - 1, metaY, { align: 'right' });
+    doc.text('Attachment:', metaStartX, metaY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(totalAttachments > 0 ? 15 : 71, totalAttachments > 0 ? 23 : 85, totalAttachments > 0 ? 42 : 105);
-    doc.text(attText, rightX, metaY, { align: 'right' });
-    metaY += 4.5;
+    doc.text(attText, valColX, metaY);
+    metaY += 5;
 
-    // Optional Your Ref
+    // Optional Your Ref:
     if (correspondence.externalRefNumber) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(71, 85, 105);
-      doc.text('Your Ref: ', rightX - doc.getTextWidth(correspondence.externalRefNumber) - 1, metaY, { align: 'right' });
+      doc.text('Your Ref:', metaStartX, metaY);
       doc.setFont('courier', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(30, 41, 59);
-      doc.text(correspondence.externalRefNumber, rightX, metaY, { align: 'right' });
-      metaY += 4.5;
+      doc.text(correspondence.externalRefNumber, valColX, metaY);
+      metaY += 5;
     }
 
     cursorY = Math.max(cursorY + 16, metaY) + 2;
@@ -244,7 +250,7 @@ export function generateCorrespondencePdf(
     doc.text(orgLines, margin, cursorY);
     cursorY += (orgLines.length * 5) + 1;
 
-    // Attention Person & Position
+    // Primary Attention Person & Position
     const attnPerson = correspondence.type === 'incoming' ? correspondence.senderPerson : correspondence.recipientPerson;
     const attnPosition = correspondence.recipientPosition;
     if (attnPerson) {
@@ -261,7 +267,7 @@ export function generateCorrespondencePdf(
       cursorY += 4.2;
     }
 
-    // Email
+    // Primary Email
     const attnEmail = correspondence.type === 'incoming' ? correspondence.senderEmail : correspondence.recipientEmail;
     if (attnEmail) {
       doc.setFont('helvetica', 'bold');
@@ -276,47 +282,69 @@ export function generateCorrespondencePdf(
       cursorY += 4.5;
     }
 
-    // Additional Recipients (Multiple Addressees)
+    // Additional Recipients (Multiple Addressees) - Clean corporate formatting:
+    // No "ADDITIONAL ADDRESSEES:" heading, company name not repeated if same company
     if (correspondence.additionalRecipients && correspondence.additionalRecipients.length > 0) {
-      cursorY += 1;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text('ADDITIONAL ADDRESSEES:', margin, cursorY);
-      cursorY += 3.5;
       correspondence.additionalRecipients.forEach((addl) => {
-        doc.setDrawColor(203, 213, 225); // slate-300 left bar
-        doc.setLineWidth(0.5);
-        doc.line(margin, cursorY - 2.5, margin, cursorY + 1);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(15, 23, 42);
-        doc.text(addl.orgName, margin + 2.5, cursorY);
-        if (addl.contactPerson) {
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(71, 85, 105);
-          const addlAttn = addl.position ? ` — Attn: ${addl.contactPerson} (${addl.position})` : ` — Attn: ${addl.contactPerson}`;
-          doc.text(addlAttn, margin + 2.5 + doc.getTextWidth(addl.orgName), cursorY);
+        if (!addl.contactPerson && !addl.orgName) return;
+
+        cursorY += 2;
+
+        const isSameCompany =
+          addl.orgName &&
+          recipientOrgText &&
+          addl.orgName.trim().toLowerCase() === recipientOrgText.trim().toLowerCase();
+
+        // If from another company, show that company name
+        if (!isSameCompany && addl.orgName) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setTextColor(15, 23, 42);
+          doc.text(addl.orgName, margin, cursorY);
+          cursorY += 4.5;
         }
-        cursorY += 4;
+
+        // Attention line in identical clean format
+        if (addl.contactPerson) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 41, 59);
+          doc.text('Attention: ', margin, cursorY);
+          const addlAttnPrefixWidth = doc.getTextWidth('Attention: ');
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(15, 23, 42);
+          const fullAddlAttn = addl.position ? `${addl.contactPerson} (${addl.position})` : addl.contactPerson;
+          doc.text(fullAddlAttn, margin + addlAttnPrefixWidth, cursorY);
+          cursorY += 4.2;
+        }
+
+        // Email line
+        if (addl.email) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 41, 59);
+          doc.text('Email: ', margin, cursorY);
+          const addlEmailPrefixWidth = doc.getTextWidth('Email: ');
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(71, 85, 105);
+          doc.text(addl.email, margin + addlEmailPrefixWidth, cursorY);
+          cursorY += 4.5;
+        }
       });
     }
 
     cursorY += 2;
   }
 
-  // --- SUBJECT BANNER (Matches on-screen shaded banner with left accent border) ---
-  cursorY += 1;
-  doc.setFillColor(248, 250, 252); // slate-50 background
-  doc.rect(margin, cursorY, contentWidth, 8, 'F');
-  doc.setFillColor(15, 23, 42); // slate-900 dark left accent border (border-l-4 border-slate-900)
-  doc.rect(margin, cursorY, 2.5, 8, 'F');
-
+  // --- SUBJECT BANNER (Clean, prominent subject line without black box) ---
+  cursorY += 2;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`SUBJECT: ${correspondence.subject.toUpperCase()}`, margin + 5, cursorY + 5.5);
-  cursorY += 12;
+  doc.text(`SUBJECT: ${correspondence.subject.toUpperCase()}`, margin, cursorY + 4);
+  cursorY += 10;
 
   // Related correspondence reference banner
   if (correspondence.relatedLinks && correspondence.relatedLinks.length > 0) {
@@ -330,26 +358,31 @@ export function generateCorrespondencePdf(
     cursorY += 6;
   }
 
-  // --- LETTER BODY ---
+  // --- LETTER BODY (Fully Justified Paragraphs) ---
   doc.setFont('times', 'normal');
   doc.setFontSize(10.5);
   doc.setTextColor(30, 41, 59);
 
-  // Strip html tags into readable text paragraphs
-  const cleanBody = correspondence.bodyHtml
+  // Split into clean paragraphs
+  const rawBody = correspondence.bodyHtml || '';
+  const paragraphStrings = rawBody
     .replace(/<\/p>/gi, '\n\n')
-    .replace(/<br\s*[\/]?>/gi, '\n')
-    .replace(/<li>/gi, '  • ')
-    .replace(/<\/li>/gi, '\n')
+    .replace(/<br\s*[\/]?>/gi, '\n\n')
+    .replace(/<li>/gi, '• ')
+    .replace(/<\/li>/gi, '\n\n')
     .replace(/<[^>]+>/g, '')
-    .trim();
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
 
-  const bodyLines = doc.splitTextToSize(cleanBody, contentWidth);
+  const lineHeight = 5.2;
 
-  // Print text line by line, handling page break if necessary
-  for (let i = 0; i < bodyLines.length; i++) {
-    if (cursorY > pageHeight - 60) {
-      // Add new page
+  for (const para of paragraphStrings) {
+    const lines = doc.splitTextToSize(para, contentWidth);
+    const paraHeight = lines.length * lineHeight;
+
+    // Check for page break
+    if (cursorY + paraHeight > pageHeight - 55) {
       addFooter(doc, settings, pageHeight, pageWidth, margin);
       doc.addPage();
       cursorY = margin + 10;
@@ -357,11 +390,17 @@ export function generateCorrespondencePdf(
       doc.setFontSize(10.5);
       doc.setTextColor(30, 41, 59);
     }
-    doc.text(bodyLines[i], margin, cursorY);
-    cursorY += 5;
+
+    if (lines.length > 1) {
+      doc.text(para, margin, cursorY, { maxWidth: contentWidth, align: 'justify' });
+    } else {
+      doc.text(para, margin, cursorY, { maxWidth: contentWidth, align: 'left' });
+    }
+
+    cursorY += paraHeight + 3.5;
   }
 
-  cursorY += 8;
+  cursorY += 5;
 
   // --- SIGNATURE BLOCK ---
   if (cursorY > pageHeight - 65) {
@@ -382,25 +421,29 @@ export function generateCorrespondencePdf(
   // Signature representation
   if (correspondence.signatureIncluded) {
     try {
-      const selectedPreset =
-        SIGNATURE_PRESETS.find((p) => p.id === settings.signature?.presetId) ||
-        DEFAULT_SIGNATURE;
-      const signatureImgData =
-        settings.signature?.signatureImageUrl &&
-        (settings.signature.signatureImageUrl.startsWith('data:image/') ||
-          settings.signature.signatureImageUrl.endsWith('.png'))
-          ? settings.signature.signatureImageUrl
-          : selectedPreset.pngDataUrl;
+      let signatureImgData =
+        correspondence.signatureImageUrl || settings.signature?.signatureImageUrl;
+
+      if (!signatureImgData || (!signatureImgData.startsWith('data:image/') && !signatureImgData.endsWith('.png'))) {
+        const selectedPreset =
+          SIGNATURE_PRESETS.find(
+            (p) =>
+              p.id === settings.signature?.presetId ||
+              p.svgUrl === signatureImgData ||
+              p.pngUrl === signatureImgData
+          ) || DEFAULT_SIGNATURE;
+        signatureImgData = selectedPreset.pngDataUrl;
+      }
 
       // Draw handwritten signature image (38mm width x 18mm height)
       doc.addImage(signatureImgData, 'PNG', margin, cursorY - 3, 38, 18);
       cursorY += 16;
 
-      // Subtle cryptographic/authenticated registry mark
+      // Subtle cryptographic/authenticated registry mark matching the letter's sending date
       doc.setFont('courier', 'bold');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text(`[DIGITALLY AUTHENTICATED • REGISTRY SEAL ${correspondence.officialDate || settings.companyName}]`, margin, cursorY);
+      doc.text(`[DIGITALLY AUTHENTICATED • REGISTRY SEAL ${effectiveDate}]`, margin, cursorY);
       cursorY += 5;
     } catch (err) {
       console.warn('Signature image embed fallback:', err);

@@ -328,6 +328,7 @@ export interface Correspondence {
   signatureIncluded: boolean;
   signatoryName?: string;
   signatoryPosition?: string;
+  signatureImageUrl?: string;
   templateId?: string;
 
   // Links, Attachments & Versions
