@@ -271,15 +271,16 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
         if (visualEditorRef.current) {
           setBodyHtml(visualEditorRef.current.innerHTML);
         }
-      } else {
-        setBodyHtml((prev) => `${prev}${tagOpen}Formatted text${tagClose}`);
       }
     }
   };
 
   const applyAlignment = (align: 'left' | 'center' | 'right' | 'justify') => {
     setEditorAlignment(align);
-    applyFormat(`<div style="text-align: ${align};">`, `</div>`);
+    if (visualEditorRef.current) {
+      document.execCommand(align === 'justify' ? 'justifyFull' : `justify${align.charAt(0).toUpperCase() + align.slice(1)}`, false);
+      setBodyHtml(visualEditorRef.current.innerHTML);
+    }
   };
 
   const applyIndent = (delta: number) => {
@@ -716,7 +717,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
         officialDate: officialDate || todayStr,
         autoUpdateDateOnSend,
         subject,
-        bodyHtml,
+        bodyHtml: bodyHtml.replace(/Formatted text/gi, '').trim(),
         confidentiality,
         priority,
         assignedDepartmentId: type === 'internal' ? destinationDeptId : assignedDeptId,
@@ -734,7 +735,12 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
         recipientPerson,
         recipientPosition: recipientPosition.trim() || undefined,
         recipientEmail,
-        additionalRecipients: additionalRecipients.filter((r) => r.orgName.trim()),
+        additionalRecipients: additionalRecipients
+          .filter((r) => r.contactPerson?.trim() || r.orgName?.trim())
+          .map((r) => ({
+            ...r,
+            orgName: r.orgName?.trim() || recipientOrg,
+          })),
         showCcOnLetter,
         internalCcUserIds,
         internalCcUserNames: internalCcNames,
@@ -2651,27 +2657,45 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                             Attn: {recipientPerson} {recipientPosition ? `(${recipientPosition})` : ''}
                           </div>
                         )}
+                        {recipientEmail && (
+                          <div className="text-slate-500 text-[11px]">
+                            Email: {recipientEmail}
+                          </div>
+                        )}
                       </div>
-                      {additionalRecipients.map((addl, idx) => (
-                        <div key={addl.id || idx} className="pt-1 border-t border-slate-100">
-                          <div className="font-bold text-slate-900 text-xs">{addl.orgName}</div>
-                          {addl.contactPerson && (
-                            <div className="text-slate-600 text-[11px]">
-                              Attn: {addl.contactPerson} {addl.position ? `(${addl.position})` : ''}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                      {additionalRecipients.map((addl, idx) => {
+                        const isSameCompany =
+                          addl.orgName &&
+                          recipientOrg &&
+                          addl.orgName.trim().toLowerCase() === recipientOrg.trim().toLowerCase();
+                        return (
+                          <div key={addl.id || idx} className="pt-1.5 space-y-0.5">
+                            {!isSameCompany && addl.orgName && (
+                              <div className="font-bold text-slate-900 text-xs">{addl.orgName}</div>
+                            )}
+                            {addl.contactPerson && (
+                              <div className="text-slate-700 text-xs">
+                                Attn: {addl.contactPerson} {addl.position ? `(${addl.position})` : ''}
+                              </div>
+                            )}
+                            {addl.email && (
+                              <div className="text-slate-500 text-[11px]">
+                                Email: {addl.email}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="font-sans bg-slate-100 p-2.5 rounded border-l-4 border-slate-900 text-xs font-bold uppercase">
+                  <div className="font-sans bg-slate-100 p-2.5 rounded text-xs font-bold uppercase text-slate-900 mb-6">
                     SUBJECT: {subject || '[No Subject Specified]'}
                   </div>
 
                   <div
                     className="text-xs leading-relaxed prose max-w-none text-slate-800"
-                    dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                    dangerouslySetInnerHTML={{ __html: bodyHtml.replace(/Formatted text/gi, '') }}
                   />
 
                   {attachments.length > 0 && (

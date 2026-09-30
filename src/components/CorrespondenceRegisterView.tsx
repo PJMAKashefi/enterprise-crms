@@ -854,12 +854,12 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                     >
                       View
                     </button>
-                    {onEditCorrespondence && item.status !== 'sent' && item.status !== 'issued' && item.status !== 'voided' && (
+                    {onEditCorrespondence && item.status !== 'sent' && item.status !== 'voided' && (
                       <button
                         type="button"
                         onClick={() => onEditCorrespondence(item)}
                         className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100/70 hover:bg-blue-200/80 rounded-lg flex items-center gap-1"
-                        title="Edit draft correspondence"
+                        title="Edit correspondence before sending"
                       >
                         <Edit3 className="h-3 w-3" />
                         <span>Edit</span>
@@ -1211,7 +1211,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                             <Mail className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {onEditCorrespondence && item.status !== 'sent' && item.status !== 'issued' && item.status !== 'voided' && (
+                        {onEditCorrespondence && item.status !== 'sent' && item.status !== 'voided' && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1219,7 +1219,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                               onEditCorrespondence(item);
                             }}
                             className="p-1.5 rounded-md hover:bg-blue-100 text-blue-700 hover:text-blue-900 transition-colors cursor-pointer"
-                            title="Edit Letter Draft (Allowed before sending)"
+                            title="Edit Letter (Allowed anytime before sending)"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
@@ -1294,8 +1294,8 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
               <span>Open Workspace</span>
             </button>
 
-            {/* Edit Draft */}
-            {onEditCorrespondence && contextMenu.item.status !== 'sent' && contextMenu.item.status !== 'issued' && contextMenu.item.status !== 'voided' && (
+            {/* Edit Letter (Allowed anytime before sending) */}
+            {onEditCorrespondence && contextMenu.item.status !== 'sent' && contextMenu.item.status !== 'voided' && (
               <button
                 type="button"
                 onClick={() => {
@@ -1305,7 +1305,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                 className="w-full px-3 py-1.5 text-left hover:bg-blue-50 flex items-center gap-2.5 cursor-pointer text-blue-900 font-semibold"
               >
                 <Edit3 className="h-3.5 w-3.5 text-blue-700" />
-                <span>Edit Letter Draft</span>
+                <span>Edit Letter</span>
               </button>
             )}
 

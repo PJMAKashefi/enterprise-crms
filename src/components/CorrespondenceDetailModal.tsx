@@ -971,7 +971,7 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
                   )}
 
                   {/* Subject Banner */}
-                  <div className="font-sans bg-slate-50 p-3.5 rounded-md mb-6 border-l-4 border-slate-900">
+                  <div className="font-sans bg-slate-50 p-3.5 rounded-md mb-6">
                     <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
                       SUBJECT: {correspondence.subject}
                     </span>

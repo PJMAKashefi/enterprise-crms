@@ -291,9 +291,10 @@ export function generateCorrespondencePdf(
         cursorY += 2;
 
         const isSameCompany =
-          addl.orgName &&
-          recipientOrgText &&
-          addl.orgName.trim().toLowerCase() === recipientOrgText.trim().toLowerCase();
+          !addl.orgName ||
+          !addl.orgName.trim() ||
+          (recipientOrgText &&
+            addl.orgName.trim().toLowerCase() === recipientOrgText.trim().toLowerCase());
 
         // If from another company, show that company name
         if (!isSameCompany && addl.orgName) {
@@ -344,7 +345,7 @@ export function generateCorrespondencePdf(
   doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
   doc.text(`SUBJECT: ${correspondence.subject.toUpperCase()}`, margin, cursorY + 4);
-  cursorY += 10;
+  cursorY += 18; // Generous automatic blank line spacing between Subject line and letter greeting
 
   // Related correspondence reference banner
   if (correspondence.relatedLinks && correspondence.relatedLinks.length > 0) {
@@ -363,14 +364,16 @@ export function generateCorrespondencePdf(
   doc.setFontSize(10.5);
   doc.setTextColor(30, 41, 59);
 
-  // Split into clean paragraphs
-  const rawBody = correspondence.bodyHtml || '';
-  const paragraphStrings = rawBody
+  // Split into clean paragraphs and automatically strip any accidental "Formatted text"
+  const rawBody = (correspondence.bodyHtml || '')
+    .replace(/Formatted text/gi, '')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<br\s*[\/]?>/gi, '\n\n')
     .replace(/<li>/gi, '• ')
     .replace(/<\/li>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<[^>]+>/g, '');
+
+  const paragraphStrings = rawBody
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
