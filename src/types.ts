@@ -329,6 +329,8 @@ export interface Correspondence {
   signatoryName?: string;
   signatoryPosition?: string;
   signatureImageUrl?: string;
+  fontFamily?: string;
+  fontSize?: string;
   templateId?: string;
 
   // Links, Attachments & Versions

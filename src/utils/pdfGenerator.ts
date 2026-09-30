@@ -359,37 +359,74 @@ export function generateCorrespondencePdf(
     cursorY += 6;
   }
 
-  // --- LETTER BODY (Fully Justified Paragraphs) ---
-  // Split into clean paragraphs and automatically strip any accidental "Formatted text"
-  const rawBody = (correspondence.bodyHtml || '')
+  // --- LETTER BODY (Fully Justified Paragraphs with Bold & Highlight Support) ---
+  // Determine font family
+  const selectedFont = (correspondence.fontFamily || '').toLowerCase();
+  const fontBase =
+    selectedFont === 'calibri' || selectedFont === 'sans'
+      ? 'helvetica'
+      : selectedFont === 'mono'
+      ? 'courier'
+      : 'times';
+
+  // Split into clean paragraphs
+  const rawBodyClean = (correspondence.bodyHtml || '')
     .replace(/Formatted text/gi, '')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<br\s*[\/]?>/gi, '\n\n')
     .replace(/<li>/gi, '• ')
-    .replace(/<\/li>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '');
+    .replace(/<\/li>/gi, '\n\n');
 
-  const paragraphStrings = rawBody
+  const paragraphHtmls = rawBodyClean
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
 
-  // Check if the letter can fit on a single page with professional compact spacing
-  doc.setFont('times', 'normal');
+  // Check if letter can fit on a single page
+  doc.setFont(fontBase, 'normal');
   doc.setFontSize(9.8);
-  const testLines = paragraphStrings.reduce((acc, p) => acc + doc.splitTextToSize(p, contentWidth).length, 0);
+  const plainParagraphs = paragraphHtmls.map((p) => p.replace(/<[^>]+>/g, ''));
+  const testLines = plainParagraphs.reduce((acc, p) => acc + doc.splitTextToSize(p, contentWidth).length, 0);
   const isSinglePageCandidate = testLines <= 38;
 
-  const bodyFontSize = isSinglePageCandidate ? 9.8 : 10.5;
+  // Font size calculation from correspondence or single-page fitting
+  let bodyFontSize = isSinglePageCandidate ? 9.8 : 10.5;
+  if (correspondence.fontSize) {
+    const sizeNum = parseFloat(correspondence.fontSize);
+    if (!isNaN(sizeNum) && sizeNum > 0) {
+      bodyFontSize = isSinglePageCandidate ? Math.min(sizeNum, 10.2) : sizeNum;
+    }
+  }
+
   const lineHeight = isSinglePageCandidate ? 4.6 : 5.2;
   const paraSpacing = isSinglePageCandidate ? 2.4 : 3.5;
 
-  doc.setFont('times', 'normal');
-  doc.setFontSize(bodyFontSize);
-  doc.setTextColor(30, 41, 59);
+  for (const paraHtml of paragraphHtmls) {
+    // Parse paragraph into styled tokens (bold, highlight, italic, underline)
+    const tokens = parseRichTokens(paraHtml);
 
-  for (const para of paragraphStrings) {
-    const lines = doc.splitTextToSize(para, contentWidth);
+    // Group tokens into lines of width <= contentWidth
+    const lines: Array<Array<{ text: string; isBold: boolean; isItalic: boolean; isUnderline: boolean; isHighlight: boolean; isSpace: boolean; width: number }>> = [];
+    let currentLine: typeof lines[0] = [];
+    let currentWidth = 0;
+
+    for (const token of tokens) {
+      doc.setFont(fontBase, token.isBold && token.isItalic ? 'bolditalic' : token.isBold ? 'bold' : token.isItalic ? 'italic' : 'normal');
+      doc.setFontSize(bodyFontSize);
+      const w = doc.getTextWidth(token.text);
+      (token as any).width = w;
+
+      if (currentWidth + w > contentWidth && currentLine.length > 0 && !token.isSpace) {
+        lines.push(currentLine);
+        currentLine = [];
+        currentWidth = 0;
+      }
+      if (currentLine.length === 0 && token.isSpace) continue; // skip leading space
+      currentLine.push(token as any);
+      currentWidth += w;
+    }
+    if (currentLine.length > 0) lines.push(currentLine);
+
     const paraHeight = lines.length * lineHeight;
 
     // Check for page break
@@ -397,21 +434,50 @@ export function generateCorrespondencePdf(
       addFooter(doc, settings, pageHeight, pageWidth, margin);
       doc.addPage();
       cursorY = margin + 10;
-      doc.setFont('times', 'normal');
-      doc.setFontSize(bodyFontSize);
-      doc.setTextColor(30, 41, 59);
     }
 
-    if (lines.length > 1) {
-      doc.text(para, margin, cursorY, { maxWidth: contentWidth, align: 'justify' });
-    } else {
-      doc.text(para, margin, cursorY, { maxWidth: contentWidth, align: 'left' });
+    // Render lines with justification
+    for (let li = 0; li < lines.length; li++) {
+      const lineTokens = lines[li];
+      const isLastLine = li === lines.length - 1;
+      const totalLineWidth = lineTokens.reduce((sum, t) => sum + t.width, 0);
+      const spaceTokens = lineTokens.filter((t) => t.isSpace);
+      const extraSpace =
+        !isLastLine && spaceTokens.length > 0 && totalLineWidth < contentWidth
+          ? (contentWidth - totalLineWidth) / spaceTokens.length
+          : 0;
+
+      let curX = margin;
+      for (const token of lineTokens) {
+        const tokenDisplayWidth = token.width + (token.isSpace ? extraSpace : 0);
+
+        // Yellow highlight marker background
+        if (token.isHighlight) {
+          doc.setFillColor(254, 240, 138); // Yellow-200 highlight
+          doc.rect(curX, cursorY - (bodyFontSize * 0.32), tokenDisplayWidth, bodyFontSize * 0.42, 'F');
+        }
+
+        doc.setFont(fontBase, token.isBold && token.isItalic ? 'bolditalic' : token.isBold ? 'bold' : token.isItalic ? 'italic' : 'normal');
+        doc.setFontSize(bodyFontSize);
+        doc.setTextColor(token.isBold ? 15 : 30, token.isBold ? 23 : 41, token.isBold ? 42 : 59);
+        doc.text(token.text, curX, cursorY);
+
+        // Underline
+        if (token.isUnderline && !token.isSpace) {
+          doc.setDrawColor(token.isBold ? 15 : 30, token.isBold ? 23 : 41, token.isBold ? 42 : 59);
+          doc.setLineWidth(0.2);
+          doc.line(curX, cursorY + 0.5, curX + token.width, cursorY + 0.5);
+        }
+
+        curX += tokenDisplayWidth;
+      }
+      cursorY += lineHeight;
     }
 
-    cursorY += paraHeight + paraSpacing;
+    cursorY += paraSpacing;
   }
 
-  cursorY += isSinglePageCandidate ? 3 : 5;
+  cursorY += isSinglePageCandidate ? 2 : 4;
 
   // --- SIGNATURE BLOCK (Compact executive layout) ---
   const sigBlockHeight = isSinglePageCandidate ? 26 : 42;
@@ -450,8 +516,18 @@ export function generateCorrespondencePdf(
       const sigWidth = isSinglePageCandidate ? 28 : 36;
       const sigHeight = isSinglePageCandidate ? 11 : 16;
 
+      // Detect image format (PNG vs JPEG)
+      let imgFormat = 'PNG';
+      if (
+        signatureImgData.startsWith('data:image/jpeg') ||
+        signatureImgData.startsWith('data:image/jpg') ||
+        /\.jpe?g($|\?)/i.test(signatureImgData)
+      ) {
+        imgFormat = 'JPEG';
+      }
+
       // Draw handwritten signature image (compact so whole letter fits on 1 page)
-      doc.addImage(signatureImgData, 'PNG', margin, cursorY - 2, sigWidth, sigHeight);
+      doc.addImage(signatureImgData, imgFormat, margin, cursorY - 2, sigWidth, sigHeight);
       cursorY += isSinglePageCandidate ? 11 : 16;
 
       // Subtle cryptographic/authenticated registry mark matching the letter's sending date
@@ -569,4 +645,69 @@ function addFooter(
 
   const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
   doc.text(`Page ${pageNumber}`, pageWidth - margin - 12, footerY);
+}
+
+interface RichToken {
+  text: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  isHighlight: boolean;
+  isSpace: boolean;
+}
+
+function parseRichTokens(paragraphHtml: string): RichToken[] {
+  // Normalize spans with style to semantic tags for robust Word/HTML compatibility
+  const normalized = paragraphHtml
+    .replace(/<span\s+style="[^"]*font-weight:\s*(?:bold|[789]00)[^"]*"[^>]*>(.*?)<\/span>/gi, '<strong>$1</strong>')
+    .replace(/<span\s+style="[^"]*background(?:-color)?:\s*[^"]*"[^>]*>(.*?)<\/span>/gi, '<mark>$1</mark>')
+    .replace(/<span\s+style="[^"]*font-style:\s*italic[^"]*"[^>]*>(.*?)<\/span>/gi, '<em>$1</em>')
+    .replace(/<span\s+style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>(.*?)<\/span>/gi, '<u>$1</u>');
+
+  const regex = /(<strong>|<b>|<\/strong>|<\/b>|<em>|<i>|<\/em>|<\/i>|<u>|<\/u>|<mark[^>]*>|<\/mark>)/gi;
+  const parts = normalized.split(regex);
+  const tokens: RichToken[] = [];
+  let isBold = false;
+  let isItalic = false;
+  let isUnderline = false;
+  let isHighlight = false;
+
+  for (const part of parts) {
+    if (!part) continue;
+    const lower = part.toLowerCase();
+    if (lower === '<strong>' || lower === '<b>') {
+      isBold = true;
+    } else if (lower === '</strong>' || lower === '</b>') {
+      isBold = false;
+    } else if (lower === '<em>' || lower === '<i>') {
+      isItalic = true;
+    } else if (lower === '</em>' || lower === '</i>') {
+      isItalic = false;
+    } else if (lower === '<u>') {
+      isUnderline = true;
+    } else if (lower === '</u>') {
+      isUnderline = false;
+    } else if (lower.startsWith('<mark')) {
+      isHighlight = true;
+    } else if (lower === '</mark>') {
+      isHighlight = false;
+    } else {
+      // Strip any other lingering tags (e.g. <span> or <div>)
+      const cleanText = part.replace(/<[^>]+>/g, '');
+      const words = cleanText.split(/(\s+)/);
+      for (const w of words) {
+        if (!w) continue;
+        tokens.push({
+          text: w,
+          isBold,
+          isItalic,
+          isUnderline,
+          isHighlight,
+          isSpace: /^\s+$/.test(w),
+        });
+      }
+    }
+  }
+
+  return tokens;
 }

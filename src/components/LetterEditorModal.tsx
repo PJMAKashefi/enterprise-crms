@@ -43,6 +43,7 @@ import {
   Type,
   Code,
   Upload,
+  Highlighter,
 } from 'lucide-react';
 import {
   generateClientCode,
@@ -66,6 +67,7 @@ import {
 import { PjmakLogo } from './PjmakLogo';
 import { SignatureEnhancerModal } from './SignatureEnhancerModal';
 import { SIGNATURE_PRESETS } from '../assets/signatures';
+import { enhanceSignaturePhoto } from '../utils/signatureEnhancer';
 
 interface EditorModalProps {
   initialType: CorrespondenceType;
@@ -240,8 +242,12 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   const [externalCcSearch, setExternalCcSearch] = useState('');
 
   // Word Processor Rich Editor Controls
-  const [editorFontFamily, setEditorFontFamily] = useState<'serif' | 'sans' | 'garamond' | 'mono'>('serif');
-  const [editorFontSize, setEditorFontSize] = useState<'10pt' | '11pt' | '12pt' | '14pt'>('12pt');
+  const [editorFontFamily, setEditorFontFamily] = useState<'calibri' | 'serif' | 'sans' | 'garamond' | 'mono'>(
+    (editItem as any)?.fontFamily || 'calibri'
+  );
+  const [editorFontSize, setEditorFontSize] = useState<'10pt' | '11pt' | '12pt' | '14pt'>(
+    (editItem as any)?.fontSize || '11pt'
+  );
   const [editorAlignment, setEditorAlignment] = useState<'left' | 'center' | 'right' | 'justify'>('left');
   const [editorIndentLevel, setEditorIndentLevel] = useState<number>(0);
   const [editorViewMode, setEditorViewMode] = useState<'visual' | 'code'>('visual');
@@ -344,16 +350,21 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
   );
   const [isEnhancerOpen, setIsEnhancerOpen] = useState(false);
 
-  const handleUploadSignatureFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadSignatureFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setActiveSignatureUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const enhancedDataUrl = await enhanceSignaturePhoto(file, { colorMode: 'black', trimWhitespace: true });
+      setActiveSignatureUrl(enhancedDataUrl);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setActiveSignatureUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // AI Assistant drawer
@@ -758,6 +769,8 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
         signatoryName,
         signatoryPosition,
         signatureImageUrl: activeSignatureUrl,
+        fontFamily: editorFontFamily,
+        fontSize: editorFontSize,
         relatedLinks,
         attachments,
         clientCode: clientCode.trim() ? clientCode.trim().toUpperCase() : undefined,
@@ -2162,6 +2175,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                       className="px-2 py-1 text-xs bg-white border border-slate-300 rounded font-medium text-slate-800"
                       title="Font Family"
                     >
+                      <option value="calibri">Calibri (Corporate Standard)</option>
                       <option value="serif">Georgia (Executive Serif)</option>
                       <option value="garamond">Garamond (Formal Classical)</option>
                       <option value="sans">Arial / Sans-Serif (Modern)</option>
@@ -2184,12 +2198,12 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
 
                   <div className="h-4 w-px bg-slate-300 mx-0.5" />
 
-                  {/* Bold, Italic, Underline */}
+                  {/* Bold, Italic, Underline, Highlight */}
                   <button
                     type="button"
                     onClick={() => applyFormat('<strong>', '</strong>')}
                     className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 font-bold cursor-pointer"
-                    title="Bold"
+                    title="Bold (Ctrl+B)"
                   >
                     <Bold className="h-3.5 w-3.5" />
                   </button>
@@ -2197,7 +2211,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                     type="button"
                     onClick={() => applyFormat('<em>', '</em>')}
                     className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 italic cursor-pointer"
-                    title="Italic"
+                    title="Italic (Ctrl+I)"
                   >
                     <Italic className="h-3.5 w-3.5" />
                   </button>
@@ -2205,9 +2219,17 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                     type="button"
                     onClick={() => applyFormat('<u>', '</u>')}
                     className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-slate-800 underline cursor-pointer"
-                    title="Underline"
+                    title="Underline (Ctrl+U)"
                   >
                     <Underline className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyFormat('<mark style="background-color: #fef08a; padding: 1px 3px; border-radius: 2px;">', '</mark>')}
+                    className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-300 text-amber-700 cursor-pointer"
+                    title="Highlight Selected Text (Yellow Marker)"
+                  >
+                    <Highlighter className="h-3.5 w-3.5 text-amber-500" />
                   </button>
 
                   <div className="h-4 w-px bg-slate-300 mx-0.5" />
@@ -2321,7 +2343,9 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                       textAlign: editorAlignment,
                       paddingLeft: `${20 + editorIndentLevel * 16}px`,
                       fontFamily:
-                        editorFontFamily === 'serif'
+                        editorFontFamily === 'calibri'
+                          ? 'Calibri, Candara, Segoe, "Segoe UI", Arial, sans-serif'
+                          : editorFontFamily === 'serif'
                           ? 'Georgia, serif'
                           : editorFontFamily === 'garamond'
                           ? '"EB Garamond", Garamond, serif'
