@@ -641,6 +641,7 @@ export interface FrontPageConfig {
   customSubtitle?: string;
   customFooterText?: string;
   clientLogoUrl?: string;
+  clientRoleLabel?: string;
 }
 
 export interface DocumentSignOffPerson {
@@ -665,6 +666,7 @@ export interface TechnicalDocument {
   projectCode: string; // e.g., 'PRJ-2026-01'
   projectName: string; // e.g., 'South Pars Refinery Modernization'
   clientCompany: string; // e.g., 'Client Company'
+  clientRoleLabel?: string; // e.g., 'Client / Operator', 'Employer', 'Owner'
   clientContactPerson?: string; // e.g., 'John Miller'
   clientEmail?: string;
 

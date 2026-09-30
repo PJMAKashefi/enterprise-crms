@@ -43,7 +43,33 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('pjmak_logged_in') === 'true';
   });
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTabState] = useState<ActiveTab>(() => {
+    const saved = localStorage.getItem('pjmak_active_tab') as ActiveTab;
+    const validTabs: ActiveTab[] = [
+      'dashboard',
+      'correspondence',
+      'technical_docs',
+      'incoming',
+      'outgoing',
+      'internal',
+      'commercial',
+      'tasks',
+      'chains',
+      'contacts',
+      'archive',
+      'reports',
+      'admin',
+    ];
+    if (saved && validTabs.includes(saved)) {
+      return saved;
+    }
+    return 'dashboard';
+  });
+
+  const setActiveTab = (tab: ActiveTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem('pjmak_active_tab', tab);
+  };
 
   // Core Data
   const [currentUser, setCurrentUser] = useState<User | null>(null);

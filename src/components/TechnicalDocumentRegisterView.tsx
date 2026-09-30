@@ -1203,6 +1203,18 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedDoc) handleDeleteDocument(selectedDoc.id);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  title="Remove this document from register"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setSelectedDoc(null)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
                   title="Close Inspector"
@@ -2587,7 +2599,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           <div className="h-px bg-slate-100 my-1" />
 
           <button
-            onClick={() => {
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               const docId = contextMenu.doc.id;
               setContextMenu(null);
               handleDeleteDocument(docId);

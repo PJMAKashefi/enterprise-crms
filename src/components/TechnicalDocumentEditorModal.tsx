@@ -580,7 +580,9 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
                   {doc.clientCompany}
                 </span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">Client / Operator</span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                  {doc.clientRoleLabel || doc.frontPageConfig?.clientRoleLabel || 'Client / Operator'}
+                </span>
               </>
             ) : (
               <>
@@ -2074,6 +2076,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               clientRevisionCode: metadataUpdates.clientRevisionCode,
               documentScope: metadataUpdates.documentScope,
               clientCompany: metadataUpdates.clientCompany,
+              clientRoleLabel: metadataUpdates.clientRoleLabel,
               clientLogoUrl: metadataUpdates.clientLogoUrl !== undefined ? metadataUpdates.clientLogoUrl : prev.clientLogoUrl,
             }));
           }}

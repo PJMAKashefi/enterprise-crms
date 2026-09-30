@@ -35,6 +35,7 @@ interface FrontPageConfigModalProps {
       clientRevisionCode: string;
       documentScope: string;
       clientCompany: string;
+      clientRoleLabel?: string;
       clientLogoUrl?: string;
     }
   ) => void;
@@ -77,6 +78,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
     clientRevisionCode: doc.clientRevisionCode || '0',
     documentScope: doc.documentScope || doc.description || '',
     clientCompany: doc.clientCompany || '',
+    clientRoleLabel: doc.clientRoleLabel || initialConfig?.clientRoleLabel || 'Client / Operator',
     clientLogoUrl: doc.clientLogoUrl || initialConfig?.clientLogoUrl || '',
   });
 
@@ -99,6 +101,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
         customSubtitle: initialConfig?.customSubtitle || '',
         customFooterText: initialConfig?.customFooterText || '',
         clientLogoUrl: initialConfig?.clientLogoUrl || doc.clientLogoUrl || '',
+        clientRoleLabel: initialConfig?.clientRoleLabel || doc.clientRoleLabel || 'Client / Operator',
       });
 
       setMetadata({
@@ -108,6 +111,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
         clientRevisionCode: doc.clientRevisionCode || '0',
         documentScope: doc.documentScope || doc.description || '',
         clientCompany: doc.clientCompany || '',
+        clientRoleLabel: doc.clientRoleLabel || initialConfig?.clientRoleLabel || 'Client / Operator',
         clientLogoUrl: doc.clientLogoUrl || initialConfig?.clientLogoUrl || '',
       });
     }
@@ -190,6 +194,7 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
       {
         ...config,
         clientLogoUrl: metadata.clientLogoUrl,
+        clientRoleLabel: metadata.clientRoleLabel,
       },
       team,
       metadata
@@ -596,17 +601,34 @@ export const FrontPageConfigModal: React.FC<FrontPageConfigModalProps> = ({
                   </span>
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Client / Operator Company
-                  </label>
-                  <input
-                    type="text"
-                    value={metadata.clientCompany}
-                    onChange={(e) => setMetadata({ ...metadata, clientCompany: e.target.value })}
-                    placeholder="Client Company Name (Optional)"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Client / Operator Company Name
+                    </label>
+                    <input
+                      type="text"
+                      value={metadata.clientCompany}
+                      onChange={(e) => setMetadata({ ...metadata, clientCompany: e.target.value })}
+                      placeholder="Client Company Name (Optional)"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Header Role Subtitle Label
+                    </label>
+                    <input
+                      type="text"
+                      value={metadata.clientRoleLabel || ''}
+                      onChange={(e) => setMetadata({ ...metadata, clientRoleLabel: e.target.value })}
+                      placeholder="e.g. Client / Operator, Employer, Owner, etc."
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Customizes or replaces the "Client / Operator" label under the company name.
+                    </span>
+                  </div>
                 </div>
 
                 <div>

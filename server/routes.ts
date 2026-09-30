@@ -9,6 +9,8 @@ import {
   deleteCorrespondenceFromDb,
   recalculateSequence,
   clearAllTechnicalDocuments,
+  exportDatabaseJson,
+  restoreDatabaseFromJson,
 } from './db';
 import {
   Correspondence,
@@ -4390,6 +4392,26 @@ apiRouter.get('/external-access-sessions', (req: Request, res: Response) => {
   });
 
   res.json(db.externalAccessSessions);
+});
+
+// 7. Full Database Backup Export (Preserves all jobs, drafts, documents, shares)
+apiRouter.get('/database/backup', (req: Request, res: Response) => {
+  const data = exportDatabaseJson();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="pjmak_edms_backup_${dateStr}.json"`);
+  res.send(JSON.stringify(data, null, 2));
+});
+
+// 8. Full Database Restore
+apiRouter.post('/database/restore', (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    const result = restoreDatabaseFromJson(data);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to restore database from backup' });
+  }
 });
 
 

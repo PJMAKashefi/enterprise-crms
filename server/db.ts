@@ -607,22 +607,13 @@ export function initDatabase(): DatabaseSchema {
       db = JSON.parse(raw);
       const initial = getInitialData();
 
-      // If database contains old mock items or missing users, cleanly reset to the initial production state
-      const hasMockCorrespondence = db.correspondence && db.correspondence.some((c) => c.id.startsWith('cor-mock-') || c.id === 'cor-1');
-      const hasOldUsers = db.users && db.users.some((u) => u.name === 'Robert Vance');
-
-      if (hasMockCorrespondence || hasOldUsers || !db.users || db.users.length === 0) {
-        db = getInitialData();
-        saveDatabase();
-        return db;
-      }
-
-      if (!db.users) db.users = initial.users;
+      // Non-destructive initialization: NEVER wipe or filter out user created correspondence or documents
+      if (!db.users || db.users.length === 0) db.users = initial.users;
       if (!db.departments) db.departments = initial.departments;
       if (!db.contacts) db.contacts = [];
       if (!db.correspondence) db.correspondence = [];
       if (!db.tasks) db.tasks = [];
-      if (!db.auditLogs) db.auditLogs = initial.auditLogs;
+      if (!db.auditLogs) db.auditLogs = initial.auditLogs || [];
       if (!db.numberSequences) db.numberSequences = initial.numberSequences;
       if (!db.companySettings) db.companySettings = initial.companySettings;
       if (db.companySettings) {
@@ -634,39 +625,18 @@ export function initDatabase(): DatabaseSchema {
         }
       }
       if (!db.templates) db.templates = initial.templates;
-      if (!db.archiveFolders || db.archiveFolders.length === 0) db.archiveFolders = initial.archiveFolders;
-      // Clean out sample technical documents so EDMS is pristine for real production document producing & sharing
-      if (db.technicalDocuments) {
-        db.technicalDocuments = db.technicalDocuments.filter(
-          (d) => !d.id.startsWith('doc-tech-')
-        );
-      } else {
-        db.technicalDocuments = [];
-      }
-      // Ensure the confidential commercial & technical proposal exists for external viewing & sharing
-      if (!db.technicalDocuments.some((d) => d.documentNumber === 'PRJ26-PJMAK-COM-PRP-001')) {
+      if (!db.archiveFolders) db.archiveFolders = initial.archiveFolders;
+      if (!db.technicalDocuments) db.technicalDocuments = [];
+      // Ensure the confidential commercial & technical proposal exists if technicalDocuments is empty
+      if (db.technicalDocuments.length === 0 && !db.technicalDocuments.some((d) => d.documentNumber === 'PRJ26-PJMAK-COM-PRP-001')) {
         db.technicalDocuments.unshift(INITIAL_CONFIDENTIAL_PROPOSAL);
       }
-      if (!db.externalAccessSessions) {
-        db.externalAccessSessions = [];
-      }
-      if (db.documentShares) {
-        db.documentShares = db.documentShares.filter(
-          (s) => !s.documentId.startsWith('doc-tech-')
-        );
-      } else {
-        db.documentShares = [];
-      }
-      if (db.documentComments) {
-        db.documentComments = db.documentComments.filter(
-          (c) => !c.documentId.startsWith('doc-tech-')
-        );
-      } else {
-        db.documentComments = [];
-      }
-      if (!db.emailTemplates || db.emailTemplates.length === 0) db.emailTemplates = initial.emailTemplates;
-      if (!db.externalUsers || db.externalUsers.length === 0) db.externalUsers = initial.externalUsers;
-      if (!db.externalAuditLogs || db.externalAuditLogs.length === 0) db.externalAuditLogs = initial.externalAuditLogs;
+      if (!db.externalAccessSessions) db.externalAccessSessions = [];
+      if (!db.documentShares) db.documentShares = [];
+      if (!db.documentComments) db.documentComments = [];
+      if (!db.emailTemplates) db.emailTemplates = initial.emailTemplates || [];
+      if (!db.externalUsers) db.externalUsers = initial.externalUsers || [];
+      if (!db.externalAuditLogs) db.externalAuditLogs = initial.externalAuditLogs || [];
 
       // Ensure Ali Kashefi exists as primary administrator with credentials
       const ali = db.users.find((u) => u.email === 'mamadalikashefi@gmail.com');
@@ -699,15 +669,6 @@ export function wipeDatabaseToClean(): DatabaseSchema {
     db?.archiveFolders && db.archiveFolders.length > 0
       ? db.archiveFolders.map((f) => ({ ...f, correspondenceIds: [] }))
       : initial.archiveFolders;
-  const cleanedTechDocs = (db?.technicalDocuments || initial.technicalDocuments || []).map((doc) => ({
-    ...doc,
-    linkedCorrespondenceIds: [],
-    linkedCorrespondenceNumbers: [],
-    revisions: (doc.revisions || []).map((rev) => ({
-      ...rev,
-      transmittalLetterNumber: undefined,
-    })),
-  }));
   db = {
     ...initial,
     users: existingUsers,
@@ -743,9 +704,47 @@ export function clearAllTechnicalDocuments(): void {
 export function saveDatabase(): void {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
+
+    // Also write a rolling safety backup
+    const backupDir = path.join(DATA_DIR, 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    const backupFile = path.join(backupDir, 'correspondence_db_latest.json');
+    fs.writeFileSync(backupFile, JSON.stringify(db, null, 2), 'utf-8');
   } catch (e) {
     console.error('Failed to persist database:', e);
   }
+}
+
+export function exportDatabaseJson(): DatabaseSchema {
+  return getDb();
+}
+
+export function restoreDatabaseFromJson(data: any): { success: boolean; message: string } {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid backup file format');
+  }
+
+  const currentDb = getDb();
+
+  // Merge non-destructively: restore collections provided in the backup
+  if (Array.isArray(data.correspondence)) currentDb.correspondence = data.correspondence;
+  if (Array.isArray(data.technicalDocuments)) currentDb.technicalDocuments = data.technicalDocuments;
+  if (Array.isArray(data.tasks)) currentDb.tasks = data.tasks;
+  if (Array.isArray(data.contacts)) currentDb.contacts = data.contacts;
+  if (Array.isArray(data.documentShares)) currentDb.documentShares = data.documentShares;
+  if (Array.isArray(data.documentComments)) currentDb.documentComments = data.documentComments;
+  if (Array.isArray(data.externalUsers)) currentDb.externalUsers = data.externalUsers;
+  if (Array.isArray(data.externalAuditLogs)) currentDb.externalAuditLogs = data.externalAuditLogs;
+  if (Array.isArray(data.archiveFolders)) currentDb.archiveFolders = data.archiveFolders;
+  if (Array.isArray(data.emailTemplates)) currentDb.emailTemplates = data.emailTemplates;
+  if (Array.isArray(data.auditLogs)) currentDb.auditLogs = data.auditLogs;
+  if (data.companySettings) currentDb.companySettings = { ...currentDb.companySettings, ...data.companySettings };
+  if (data.numberSequences) currentDb.numberSequences = { ...currentDb.numberSequences, ...data.numberSequences };
+
+  saveDatabase();
+  return { success: true, message: 'Database successfully restored from backup' };
 }
 
 export function getDb(): DatabaseSchema {
