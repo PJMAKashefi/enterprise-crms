@@ -29,6 +29,7 @@ import {
 import {
   createGmailDraft,
   sendGmailMessage,
+  openGmailCompose,
   GmailDraftResult,
 } from '../utils/gmailService';
 import { openYahooCompose } from '../utils/yahooMailService';
@@ -212,6 +213,50 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
 
   const pdfFilename = `${(correspondence?.correspondenceNumber || 'Correspondence').replace(/[\/\\]/g, '_')}_Official_Letter.pdf`;
 
+  // 1-Click Direct Gmail Web Compose (Bypasses popup blockers and OAuth requirements)
+  const handleDirectWebCompose = async () => {
+    if (!toEmail.trim()) {
+      alert('Recipient email address is required.');
+      return;
+    }
+    try {
+      setProcessing(true);
+      // Download official PDF letter
+      generateCorrespondencePdf(correspondence, settings, true);
+
+      // Open Gmail Web Compose with pre-filled content
+      const emailPayload = {
+        to: toEmail,
+        cc: ccEmails,
+        subject: emailSubject,
+        bodyText: emailBody,
+      };
+      openGmailCompose(emailPayload);
+
+      // Record dispatch in PJMAK registry
+      await onRecordEmailAction({
+        to: toEmail,
+        cc: ccEmails,
+        subject: emailSubject,
+        body: emailBody,
+        isDraft: false,
+        provider: 'gmail',
+        senderAccount: 'Gmail Web',
+      });
+
+      setSuccessInfo({
+        message: 'Official Letter PDF downloaded and Gmail compose opened! Letter marked as Sent with today’s date.',
+        isDraft: false,
+      });
+      setTimeout(onClose, 2500);
+    } catch (err: any) {
+      console.error('Direct web compose error:', err);
+      alert(err.message || 'Failed to open Gmail');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // Submit Handler
   const handleExecute = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,18 +296,7 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
 
       // 2. Handling Gmail
       if (selectedProvider === 'gmail') {
-        // Must be authenticated with Google
-        let token = googleToken || (await getAccessToken());
-        if (!token) {
-          const authRes = await googleSignIn();
-          if (!authRes?.accessToken) {
-            throw new Error('Please sign in with Google to grant Gmail access.');
-          }
-          token = authRes.accessToken;
-          setGoogleUser(authRes.user);
-          setGoogleToken(authRes.accessToken);
-        }
-
+        const todayStr = new Date().toISOString().split('T')[0];
         const emailPayload = {
           to: toEmail,
           cc: ccEmails,
@@ -274,11 +308,52 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
             <hr style="border: none; border-top: 1px solid #cbd5e1; margin: 20px 0;"/>
             <p style="font-size: 11px; color: #64748b;">
               <strong>${settings.companyName}</strong> - Official Correspondence Management System<br/>
-              Reference: <strong>${correspondence.correspondenceNumber}</strong> | Date: ${correspondence.officialDate}
+              Reference: <strong>${correspondence.correspondenceNumber}</strong> | Date: ${todayStr}
             </p>
           </div>`,
           includePdfAttachment: includePdf,
         };
+
+        // Attempt API if token exists or user authenticated
+        let token = googleToken || (await getAccessToken());
+        let usedWebFallback = false;
+
+        if (!token) {
+          try {
+            const authRes = await googleSignIn();
+            token = authRes?.accessToken || null;
+            if (authRes) {
+              setGoogleUser(authRes.user);
+              setGoogleToken(authRes.accessToken);
+            }
+          } catch (authErr: any) {
+            console.warn('Google Popup / OAuth blocked or unavailable. Seamlessly launching Gmail Web Compose:', authErr);
+            usedWebFallback = true;
+          }
+        }
+
+        if (usedWebFallback || !token) {
+          // Seamless fallback: download PDF and open Gmail Web Compose
+          generateCorrespondencePdf(correspondence, settings, true);
+          openGmailCompose(emailPayload);
+
+          await onRecordEmailAction({
+            to: toEmail,
+            cc: ccEmails,
+            subject: emailSubject,
+            body: emailBody,
+            isDraft: actionChoice === 'draft',
+            provider: 'gmail',
+            senderAccount: 'Gmail Web',
+          });
+
+          setSuccessInfo({
+            message: `Official Letter PDF downloaded and Gmail compose opened with your letter ready! Registry status updated to Sent.`,
+            isDraft: actionChoice === 'draft',
+          });
+          setTimeout(onClose, 2500);
+          return;
+        }
 
         if (actionChoice === 'draft') {
           // Create Draft via Gmail API
@@ -321,7 +396,7 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
           });
 
           setSuccessInfo({
-            message: `Official correspondence dispatched directly from your Gmail (${googleUser?.email})!`,
+            message: `Official correspondence dispatched directly from your Gmail (${googleUser?.email})! Registry status updated to Sent.`,
             isDraft: false,
           });
           setTimeout(onClose, 2000);
@@ -549,6 +624,21 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
                       <span>
                         {isAuthenticating ? 'Connecting to Gmail...' : 'Connect with Gmail'}
                       </span>
+                    </button>
+
+                    <div className="relative flex py-0.5 items-center">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <span className="shrink-0 mx-2 text-[10px] text-slate-400 font-semibold uppercase">Or Direct Web Compose</span>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDirectWebCompose}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold border border-blue-200 rounded-xl transition-colors cursor-pointer text-xs shadow-2xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-blue-700" />
+                      <span>Open Directly in Gmail Web (1-Click • No Sign-In Required)</span>
                     </button>
                   </div>
                 )}

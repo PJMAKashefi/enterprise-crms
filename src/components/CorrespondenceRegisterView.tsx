@@ -92,6 +92,16 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
   const [sortField, setSortField] = useState<'officialDate' | 'correspondenceNumber'>('officialDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const getStatusLabel = (item: Correspondence) => {
+    if (item.type === 'outgoing') {
+      if (item.status === 'issued') return 'Ready to Send';
+      if (item.status === 'sent') return 'Sent';
+    }
+    return (item.status || 'draft').replace(/_/g, ' ');
+  };
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -458,8 +468,9 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
       case 'replied':
       case 'completed':
       case 'sent':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold';
       case 'issued':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-sky-50 text-sky-800 border-sky-300 font-semibold';
       case 'awaiting_approval':
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'under_review':
@@ -792,8 +803,8 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                     <span className="font-mono font-bold text-blue-950 text-xs block">
                       {item.correspondenceNumber}
                     </span>
-                    <span className="text-[11px] text-slate-500">
-                      {item.officialDate}
+                    <span className="text-[11px] text-slate-600 font-medium">
+                      {item.type === 'outgoing' && item.status !== 'sent' ? `${todayStr} (On Dispatch)` : (item.dateSent || item.officialDate)}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -809,7 +820,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                         item.status
                       )}`}
                     >
-                      {(item.status || 'draft').replace(/_/g, ' ')}
+                      {getStatusLabel(item)}
                     </span>
                   </div>
                 </div>
@@ -990,7 +1001,14 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
 
                     {/* Official Date */}
                     <td className="py-3.5 px-4 text-slate-700 whitespace-nowrap">
-                      {item.officialDate}
+                      {item.type === 'outgoing' && item.status !== 'sent' ? (
+                        <div>
+                          <span className="font-semibold text-slate-900">{todayStr}</span>
+                          <span className="block text-[10px] text-slate-400 font-medium">(On Dispatch)</span>
+                        </div>
+                      ) : (
+                        <span className="font-medium text-slate-800">{item.dateSent || item.officialDate}</span>
+                      )}
                     </td>
 
                     {/* External Ref for Incoming */}
@@ -1084,7 +1102,7 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                             item.status
                           )}`}
                         >
-                          {(item.status || 'draft').replace(/_/g, ' ')}
+                          {getStatusLabel(item)}
                         </span>
                         {item.emailStatus === 'drafted' && (
                           <span

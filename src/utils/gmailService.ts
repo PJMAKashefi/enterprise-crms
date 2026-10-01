@@ -185,3 +185,30 @@ export async function sendGmailMessage(
     threadId: result.threadId,
   };
 }
+
+/**
+ * Generates official Gmail Web Compose URL (bypasses OAuth/popup blockers)
+ */
+export function generateGmailComposeUrl(payload: EmailPayload): string {
+  const params = new URLSearchParams();
+  params.set('view', 'cm');
+  params.set('fs', '1');
+  if (payload.to) params.set('to', payload.to);
+  if (payload.cc) params.set('cc', payload.cc);
+  if (payload.bcc) params.set('bcc', payload.bcc);
+  if (payload.subject) params.set('su', payload.subject);
+
+  const plainBody = (payload.bodyText || payload.bodyHtml || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]*>/g, '');
+
+  if (plainBody) params.set('body', plainBody);
+
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+export function openGmailCompose(payload: EmailPayload): Window | null {
+  const url = generateGmailComposeUrl(payload);
+  return window.open(url, '_blank', 'noopener,noreferrer');
+}
