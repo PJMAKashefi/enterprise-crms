@@ -190,12 +190,32 @@ export async function sendGmailMessage(
  * Generates official Gmail Web Compose URL (bypasses OAuth/popup blockers)
  */
 export function generateGmailComposeUrl(payload: EmailPayload): string {
+  // Strip spaces around commas for strict email URL compatibility
+  const cleanTo = (payload.to || '')
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0)
+    .join(',');
+
+  const cleanCc = (payload.cc || '')
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0)
+    .join(',');
+
+  const cleanBcc = (payload.bcc || '')
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0)
+    .join(',');
+
   const params = new URLSearchParams();
   params.set('view', 'cm');
   params.set('fs', '1');
-  if (payload.to) params.set('to', payload.to);
-  if (payload.cc) params.set('cc', payload.cc);
-  if (payload.bcc) params.set('bcc', payload.bcc);
+  params.set('tf', 'cm');
+  if (cleanTo) params.set('to', cleanTo);
+  if (cleanCc) params.set('cc', cleanCc);
+  if (cleanBcc) params.set('bcc', cleanBcc);
   if (payload.subject) params.set('su', payload.subject);
 
   const plainBody = (payload.bodyText || payload.bodyHtml || '')

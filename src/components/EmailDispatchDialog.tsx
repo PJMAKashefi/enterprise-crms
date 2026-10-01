@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Send,
@@ -132,9 +132,52 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
 
   // Email form fields
   const [toEmail, setToEmail] = useState(correspondence.recipientEmail || '');
-  const [ccEmails, setCcEmails] = useState(
-    correspondence.ccEmails?.join(', ') || ''
-  );
+  const [ccEmails, setCcEmails] = useState<string>(() => {
+    const list: string[] = [];
+    if (correspondence.ccEmails && Array.isArray(correspondence.ccEmails)) {
+      list.push(...correspondence.ccEmails);
+    }
+    if (correspondence.externalCcRecipients && Array.isArray(correspondence.externalCcRecipients)) {
+      correspondence.externalCcRecipients.forEach((r) => {
+        if (r.email && !list.includes(r.email)) list.push(r.email);
+      });
+    }
+    if (correspondence.additionalRecipients && Array.isArray(correspondence.additionalRecipients)) {
+      correspondence.additionalRecipients.forEach((r) => {
+        if (r.email && !list.includes(r.email) && r.email !== correspondence.recipientEmail) {
+          list.push(r.email);
+        }
+      });
+    }
+    return list.filter(Boolean).join(', ');
+  });
+
+  // Available quick CC options
+  const availableQuickCc = useMemo(() => {
+    const map = new Map<string, string>();
+    if (correspondence.additionalRecipients) {
+      correspondence.additionalRecipients.forEach((r) => {
+        if (r.email && r.email !== toEmail) {
+          map.set(r.email.toLowerCase(), r.contactPerson || r.orgName || r.email);
+        }
+      });
+    }
+    if (correspondence.externalCcRecipients) {
+      correspondence.externalCcRecipients.forEach((r) => {
+        if (r.email && r.email !== toEmail) {
+          map.set(r.email.toLowerCase(), r.name || r.orgName || r.email);
+        }
+      });
+    }
+    if (correspondence.ccEmails) {
+      correspondence.ccEmails.forEach((e) => {
+        if (e && e !== toEmail && !map.has(e.toLowerCase())) {
+          map.set(e.toLowerCase(), e);
+        }
+      });
+    }
+    return Array.from(map.entries()).map(([email, label]) => ({ email, label }));
+  }, [correspondence, toEmail]);
   const [emailSubject, setEmailSubject] = useState(defaultSubject);
   const [emailBody, setEmailBody] = useState(() => {
     const salutationLine = `Dear Mr. ${correspondence.recipientPerson || correspondence.recipientOrg || 'Sir / Madam'},`;
@@ -896,6 +939,43 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
                     placeholder="deputy@company.com, legal@company.com"
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-mono"
                   />
+                  {availableQuickCc.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Add CC:</span>
+                      {availableQuickCc.map((q) => {
+                        const inCc = ccEmails.toLowerCase().includes(q.email.toLowerCase());
+                        return (
+                          <button
+                            key={q.email}
+                            type="button"
+                            onClick={() => {
+                              if (inCc) {
+                                const updated = ccEmails
+                                  .split(/[,;\s]+/)
+                                  .filter((e) => e.toLowerCase() !== q.email.toLowerCase())
+                                  .join(', ');
+                                setCcEmails(updated);
+                              } else {
+                                const updated = ccEmails.trim()
+                                  ? `${ccEmails.trim()}, ${q.email}`
+                                  : q.email;
+                                setCcEmails(updated);
+                              }
+                            }}
+                            className={`px-2 py-0.5 rounded text-[10px] border transition-all cursor-pointer flex items-center gap-1 ${
+                              inCc
+                                ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
+                                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                            }`}
+                            title={q.email}
+                          >
+                            <span>{inCc ? '✓' : '+'}</span>
+                            <span className="truncate max-w-[160px]">{q.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div>
