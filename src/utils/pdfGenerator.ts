@@ -451,10 +451,10 @@ export function generateCorrespondencePdf(
       for (const token of lineTokens) {
         const tokenDisplayWidth = token.width + (token.isSpace ? extraSpace : 0);
 
-        // Yellow highlight marker background
-        if (token.isHighlight) {
+        // Yellow highlight marker background (only around authentic highlighted words)
+        if (token.isHighlight && !token.isSpace) {
           doc.setFillColor(254, 240, 138); // Yellow-200 highlight
-          doc.rect(curX, cursorY - (bodyFontSize * 0.32), tokenDisplayWidth, bodyFontSize * 0.42, 'F');
+          doc.rect(curX, cursorY - (bodyFontSize * 0.32), token.width, bodyFontSize * 0.42, 'F');
         }
 
         doc.setFont(fontBase, token.isBold && token.isItalic ? 'bolditalic' : token.isBold ? 'bold' : token.isItalic ? 'italic' : 'normal');
@@ -658,11 +658,34 @@ interface RichToken {
 
 function parseRichTokens(paragraphHtml: string): RichToken[] {
   // Normalize spans with style to semantic tags for robust Word/HTML compatibility
+  // ONLY convert genuine highlight colors (yellow, amber, etc.) to <mark>. NEVER convert white or transparent!
   const normalized = paragraphHtml
     .replace(/<span\s+style="[^"]*font-weight:\s*(?:bold|[789]00)[^"]*"[^>]*>(.*?)<\/span>/gi, '<strong>$1</strong>')
-    .replace(/<span\s+style="[^"]*background(?:-color)?:\s*[^"]*"[^>]*>(.*?)<\/span>/gi, '<mark>$1</mark>')
     .replace(/<span\s+style="[^"]*font-style:\s*italic[^"]*"[^>]*>(.*?)<\/span>/gi, '<em>$1</em>')
-    .replace(/<span\s+style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>(.*?)<\/span>/gi, '<u>$1</u>');
+    .replace(/<span\s+style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>(.*?)<\/span>/gi, '<u>$1</u>')
+    .replace(/<span\s+style="[^"]*background(?:-color)?:\s*([^;"]+)[^"]*"[^>]*>(.*?)<\/span>/gi, (match, color, content) => {
+      const c = color.trim().toLowerCase();
+      // Exclude normal Word backgrounds: white, transparent, #ffffff, etc.
+      if (
+        c === 'white' ||
+        c === '#fff' ||
+        c === '#ffffff' ||
+        c === 'transparent' ||
+        c === 'none' ||
+        c === 'inherit' ||
+        c === 'initial' ||
+        c.startsWith('rgba(0') ||
+        c.startsWith('rgba(255, 255, 255') ||
+        c.startsWith('rgb(255, 255, 255')
+      ) {
+        return content;
+      }
+      // Only highlight if genuinely colored (e.g. yellow, amber, #ff, #fe, rgb)
+      if (c.includes('yellow') || c.includes('#ff') || c.includes('#fe') || c.includes('rgb(')) {
+        return `<mark>${content}</mark>`;
+      }
+      return content;
+    });
 
   const regex = /(<strong>|<b>|<\/strong>|<\/b>|<em>|<i>|<\/em>|<\/i>|<u>|<\/u>|<mark[^>]*>|<\/mark>)/gi;
   const parts = normalized.split(regex);
@@ -688,7 +711,12 @@ function parseRichTokens(paragraphHtml: string): RichToken[] {
     } else if (lower === '</u>') {
       isUnderline = false;
     } else if (lower.startsWith('<mark')) {
-      isHighlight = true;
+      // Check if mark tag has white/transparent background:
+      if (lower.includes('background: white') || lower.includes('#ffffff') || lower.includes('transparent')) {
+        isHighlight = false;
+      } else {
+        isHighlight = true;
+      }
     } else if (lower === '</mark>') {
       isHighlight = false;
     } else {

@@ -354,9 +354,13 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const enhancedDataUrl = await enhanceSignaturePhoto(file, { colorMode: 'black', trimWhitespace: true });
-      setActiveSignatureUrl(enhancedDataUrl);
-    } catch {
+      const res = await enhanceSignaturePhoto(file, { colorMode: 'black', trimWhitespace: true });
+      const url = typeof res === 'string' ? res : res.dataUrl;
+      if (url && typeof url === 'string') {
+        setActiveSignatureUrl(url);
+      }
+    } catch (err) {
+      console.warn('Enhance signature photo fallback to reader:', err);
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -2493,7 +2497,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-28 bg-slate-50 border border-slate-200 rounded flex items-center justify-center p-1">
                           <img
-                            src={activeSignatureUrl}
+                            src={typeof activeSignatureUrl === 'string' ? activeSignatureUrl : (activeSignatureUrl as any)?.dataUrl || ''}
                             alt={`Signature of ${signatoryName}`}
                             className="h-10 max-w-full object-contain pointer-events-none select-none"
                           />
@@ -2505,7 +2509,7 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
                           <span className="text-[10px] text-slate-500 block">
                             Stamped on official letter stationery & downloaded PDF
                           </span>
-                          {activeSignatureUrl.startsWith('data:image/') ? (
+                          {typeof activeSignatureUrl === 'string' && activeSignatureUrl.startsWith('data:image/') ? (
                             <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                               ✓ Your Real Handwritten Signature (Active)
                             </span>
