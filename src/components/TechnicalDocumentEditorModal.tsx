@@ -2095,6 +2095,10 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               clientRoleLabel: metadataUpdates.clientRoleLabel,
               clientLogoUrl: metadataUpdates.clientLogoUrl !== undefined ? metadataUpdates.clientLogoUrl : prev.clientLogoUrl,
             }));
+            setShowConfigModal(false);
+          }}
+        />
+
         {/* 5. MODAL FOR EDITING CLASSIFICATION & DETAILS (TECHNICAL VS COMMERCIAL) */}
         {showEditDetailsModal && (
           <EditTechnicalDocumentModal
