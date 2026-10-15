@@ -71,11 +71,18 @@ import {
   printTechnicalDocumentDossier,
   generateTechnicalDocumentPdf,
 } from '../utils/documentDossierExporter';
+import {
+  getNextTechnicalDocumentNumber,
+  normalizeDocumentNumber,
+  formatProjectCodePrefix,
+} from '../utils/documentNumbering';
 
 interface TechnicalDocumentEditorModalProps {
   document: TechnicalDocument;
   currentUser: User;
   contacts?: Contact[];
+  existingDocuments?: TechnicalDocument[];
+  isOpen?: boolean;
   onClose: () => void;
   onSave: (updatedDoc: TechnicalDocument) => Promise<void>;
   onRefreshData?: () => void;
@@ -86,6 +93,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
   document: initialDoc,
   currentUser,
   contacts = [],
+  existingDocuments = [],
   onClose,
   onSave,
   onRefreshData,
@@ -156,13 +164,18 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
           },
         ];
 
+    const cleanDocNumber = normalizeDocumentNumber(initialDoc.documentNumber);
+    const cleanProjectCode = formatProjectCodePrefix(initialDoc.projectCode);
+
     return {
       ...initialDoc,
+      documentNumber: cleanDocNumber,
+      projectCode: cleanProjectCode,
       documentMode: initialDoc.documentMode || 'generated',
       documentScope: initialDoc.documentScope || initialDoc.description || '',
       clientDocumentNumber: initialDoc.clientDocumentNumber || '',
       clientRevisionCode: initialDoc.clientRevisionCode || '0',
-      contractorDocumentNumber: initialDoc.contractorDocumentNumber || initialDoc.documentNumber,
+      contractorDocumentNumber: normalizeDocumentNumber(initialDoc.contractorDocumentNumber || cleanDocNumber),
       contractorRevisionNo: initialDoc.contractorRevisionNo || '0',
       poNumber: initialDoc.poNumber || '',
       contractNumber: isProposal ? '' : (initialDoc.contractNumber || ''), // Blank for proposals as requested
@@ -465,19 +478,31 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
   // Quick Switch between Technical and Commercial before sending
   const handleQuickSwitchDiscipline = async (targetDiscipline: DocumentDiscipline) => {
-    const oldDiscipline = doc.discipline;
     let newDocNumber = doc.documentNumber;
+    let newSeqNumber = doc.sequenceNumber;
 
-    if (newDocNumber.includes(`-${oldDiscipline}-`)) {
-      newDocNumber = newDocNumber.replace(`-${oldDiscipline}-`, `-${targetDiscipline}-`);
-    } else if (newDocNumber.includes(`${oldDiscipline}-`)) {
-      newDocNumber = newDocNumber.replace(`${oldDiscipline}-`, `${targetDiscipline}-`);
+    if (existingDocuments && existingDocuments.length > 0) {
+      const next = getNextTechnicalDocumentNumber({
+        projectCode: doc.projectCode,
+        originator: doc.originator,
+        discipline: targetDiscipline,
+        documentType: 'PRP',
+        existingDocuments,
+        currentDocIdToExclude: doc.id,
+      });
+      newDocNumber = next.documentNumber;
+      newSeqNumber = next.sequenceNumber;
+    } else {
+      newDocNumber = normalizeDocumentNumber(doc.documentNumber, targetDiscipline, 'PRP');
     }
 
     const updated: TechnicalDocument = {
       ...doc,
       discipline: targetDiscipline,
       documentNumber: newDocNumber,
+      sequenceNumber: newSeqNumber || doc.sequenceNumber,
+      contractorDocumentNumber: newDocNumber,
+      projectCode: formatProjectCodePrefix(doc.projectCode),
       documentType: 'PRP',
       reasonForIssue: targetDiscipline === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
       bodyHtml: editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml,
@@ -2203,6 +2228,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
             isOpen={showEditDetailsModal}
             doc={doc}
             contacts={contacts}
+            existingDocuments={existingDocuments}
             onClose={() => setShowEditDetailsModal(false)}
             onSave={async (updatedDoc) => {
               setDoc(updatedDoc);

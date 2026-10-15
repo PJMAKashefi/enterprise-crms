@@ -61,6 +61,11 @@ import {
   generateDefaultCostCode,
   generateDefaultRevenueCode,
 } from '../utils/clientCodeGenerator';
+import {
+  getNextTechnicalDocumentNumber,
+  normalizeDocumentNumber,
+  formatProjectCodePrefix,
+} from '../utils/documentNumbering';
 
 interface TechnicalDocumentRegisterViewProps {
   documents: TechnicalDocument[];
@@ -188,7 +193,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
     contractorRevisionNo: '0',
     poNumber: '',
     rdsPpCode: '',
-    projectCode: 'PRJ-2026-01',
+    projectCode: 'PRJ26',
     projectName: 'Engineering Project',
     clientCompany: '',
     clientContactPerson: '',
@@ -413,11 +418,22 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
 
     setIsSubmitting(true);
     try {
+      const nextDocInfo = getNextTechnicalDocumentNumber({
+        projectCode: newForm.projectCode,
+        originator: newForm.originator,
+        discipline: newForm.discipline,
+        documentType: newForm.documentType,
+        existingDocuments: documents,
+      });
+
       const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newForm,
+          documentNumber: nextDocInfo.documentNumber,
+          sequenceNumber: nextDocInfo.sequenceNumber,
+          projectCode: nextDocInfo.projectPrefix,
           commercialValue: newForm.commercialValue ? Number(newForm.commercialValue) : undefined,
         }),
       });
@@ -1367,17 +1383,21 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                           type="button"
                           onClick={async () => {
                             const newDisc = selectedDoc.discipline === 'COM' ? 'TEC' : 'COM';
-                            let newDocNum = selectedDoc.documentNumber;
-                            const oldDisc = selectedDoc.discipline;
-                            if (newDocNum.includes(`-${oldDisc}-`)) {
-                              newDocNum = newDocNum.replace(`-${oldDisc}-`, `-${newDisc}-`);
-                            } else if (newDocNum.includes(`${oldDisc}-`)) {
-                              newDocNum = newDocNum.replace(`${oldDisc}-`, `${newDisc}-`);
-                            }
+                            const next = getNextTechnicalDocumentNumber({
+                              projectCode: selectedDoc.projectCode,
+                              originator: selectedDoc.originator,
+                              discipline: newDisc,
+                              documentType: selectedDoc.documentType,
+                              existingDocuments: documents,
+                              currentDocIdToExclude: selectedDoc.id,
+                            });
                             const updatedDoc: TechnicalDocument = {
                               ...selectedDoc,
                               discipline: newDisc,
-                              documentNumber: newDocNum,
+                              documentNumber: next.documentNumber,
+                              sequenceNumber: next.sequenceNumber,
+                              projectCode: next.projectPrefix,
+                              contractorDocumentNumber: next.documentNumber,
                               reasonForIssue: newDisc === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
                             };
                             await handleSaveEditedDoc(updatedDoc);
@@ -1991,15 +2011,33 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
               </div>
 
               {/* Document Number Preview */}
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold text-blue-950/70 uppercase">
-                  Automatic Sequential Format
-                </span>
-                <div className="font-mono font-bold text-blue-950 text-sm">
-                  {(newForm.projectCode || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase()}-
-                  {newForm.originator}-{newForm.discipline}-{newForm.documentType}-###
-                </div>
-              </div>
+              {(() => {
+                const previewInfo = getNextTechnicalDocumentNumber({
+                  projectCode: newForm.projectCode,
+                  originator: newForm.originator,
+                  discipline: newForm.discipline,
+                  documentType: newForm.documentType,
+                  existingDocuments: documents,
+                });
+                return (
+                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-blue-950/70 uppercase">
+                        Automatic Sequential Format
+                      </span>
+                      <span className="text-[10px] bg-blue-200/70 text-blue-900 font-bold px-2 py-0.5 rounded-full">
+                        Next Sequence #{previewInfo.sequenceNumber}
+                      </span>
+                    </div>
+                    <div className="font-mono font-bold text-blue-950 text-sm flex items-center justify-between">
+                      <span>{previewInfo.documentNumber}</span>
+                      <span className="text-[11px] font-sans font-medium text-slate-500">
+                        Project: <strong className="font-mono text-blue-900">{previewInfo.projectPrefix}</strong>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Title & Scope */}
               <div className="space-y-3">
@@ -2602,6 +2640,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           document={editingDoc}
           currentUser={currentUser}
           contacts={contacts}
+          existingDocuments={documents}
           isOpen={isEditorModalOpen}
           onClose={() => {
             setIsEditorModalOpen(false);
@@ -2621,6 +2660,7 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           isOpen={isEditMetadataModalOpen}
           doc={docToEditMetadata}
           contacts={contacts}
+          existingDocuments={documents}
           onClose={() => {
             setIsEditMetadataModalOpen(false);
             setDocToEditMetadata(null);

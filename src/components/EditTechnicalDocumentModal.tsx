@@ -21,11 +21,17 @@ import {
   DocumentReviewStatus,
   Contact,
 } from '../types';
+import {
+  getNextTechnicalDocumentNumber,
+  normalizeDocumentNumber,
+  formatProjectCodePrefix,
+} from '../utils/documentNumbering';
 
 interface EditTechnicalDocumentModalProps {
   isOpen: boolean;
   doc: TechnicalDocument;
   contacts?: Contact[];
+  existingDocuments?: TechnicalDocument[];
   onClose: () => void;
   onSave: (updatedDoc: TechnicalDocument) => Promise<void>;
 }
@@ -64,17 +70,26 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
   isOpen,
   doc,
   contacts = [],
+  existingDocuments = [],
   onClose,
   onSave,
 }) => {
-  const [formData, setFormData] = useState<TechnicalDocument>(() => ({ ...doc }));
+  const [formData, setFormData] = useState<TechnicalDocument>(() => ({
+    ...doc,
+    documentNumber: normalizeDocumentNumber(doc.documentNumber),
+    projectCode: formatProjectCodePrefix(doc.projectCode),
+  }));
   const [autoUpdateDocNumber, setAutoUpdateDocNumber] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Sync state whenever doc changes
   useEffect(() => {
-    setFormData({ ...doc });
+    setFormData({
+      ...doc,
+      documentNumber: normalizeDocumentNumber(doc.documentNumber),
+      projectCode: formatProjectCodePrefix(doc.projectCode),
+    });
     setError(null);
   }, [doc]);
 
@@ -83,25 +98,31 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
   // Handle changing discipline (e.g. from TEC to COM or vice-versa)
   const handleDisciplineChange = (newDiscipline: DocumentDiscipline) => {
     let newDocNumber = formData.documentNumber;
+    let newSeq = formData.sequenceNumber;
 
     if (autoUpdateDocNumber) {
-      // Intelligently substitute the old discipline in the document number
-      const oldDiscipline = formData.discipline;
-      if (newDocNumber.includes(`-${oldDiscipline}-`)) {
-        newDocNumber = newDocNumber.replace(`-${oldDiscipline}-`, `-${newDiscipline}-`);
-      } else if (newDocNumber.includes(`${oldDiscipline}-`)) {
-        newDocNumber = newDocNumber.replace(`${oldDiscipline}-`, `${newDiscipline}-`);
-      }
+      // Intelligently calculate the correct next sequence number for this new discipline
+      const next = getNextTechnicalDocumentNumber({
+        projectCode: formData.projectCode,
+        originator: formData.originator,
+        discipline: newDiscipline,
+        documentType: formData.documentType,
+        existingDocuments,
+        currentDocIdToExclude: formData.id,
+      });
+      newDocNumber = next.documentNumber;
+      newSeq = next.sequenceNumber;
     }
 
     setFormData((prev) => ({
       ...prev,
       discipline: newDiscipline,
       documentNumber: newDocNumber,
+      sequenceNumber: newSeq || prev.sequenceNumber,
       // If switching to commercial, ensure reasonable reasonForIssue if was generic
       reasonForIssue:
         newDiscipline === 'COM' && prev.reasonForIssue === 'For Review'
-          ? 'Commercial Offer'
+          ? 'Commercial Proposal Offer'
           : prev.reasonForIssue,
     }));
   };
@@ -109,31 +130,44 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
   // Handle changing document type (e.g. from SPC/DWG to PRP/BOQ)
   const handleDocTypeChange = (newType: DocumentTypeCode) => {
     let newDocNumber = formData.documentNumber;
+    let newSeq = formData.sequenceNumber;
 
     if (autoUpdateDocNumber) {
-      const oldType = formData.documentType;
-      if (newDocNumber.includes(`-${oldType}-`)) {
-        newDocNumber = newDocNumber.replace(`-${oldType}-`, `-${newType}-`);
-      } else if (newDocNumber.endsWith(`-${oldType}`)) {
-        newDocNumber = newDocNumber.slice(0, -oldType.length) + newType;
-      }
+      const next = getNextTechnicalDocumentNumber({
+        projectCode: formData.projectCode,
+        originator: formData.originator,
+        discipline: formData.discipline,
+        documentType: newType,
+        existingDocuments,
+        currentDocIdToExclude: formData.id,
+      });
+      newDocNumber = next.documentNumber;
+      newSeq = next.sequenceNumber;
     }
 
     setFormData((prev) => ({
       ...prev,
       documentType: newType,
       documentNumber: newDocNumber,
+      sequenceNumber: newSeq || prev.sequenceNumber,
     }));
   };
 
   const handleRegenerateNumber = () => {
-    const prj = (formData.projectCode || 'PRJ').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase();
-    const orig = formData.originator || 'PJMAK';
-    const disc = formData.discipline || 'COM';
-    const type = formData.documentType || 'PRP';
-    const seq = String(formData.sequenceNumber || 1).padStart(4, '0');
-    const newNumber = `${prj}-${orig}-${disc}-${type}-${seq}`;
-    setFormData((prev) => ({ ...prev, documentNumber: newNumber }));
+    const next = getNextTechnicalDocumentNumber({
+      projectCode: formData.projectCode,
+      originator: formData.originator,
+      discipline: formData.discipline,
+      documentType: formData.documentType,
+      existingDocuments,
+      currentDocIdToExclude: formData.id,
+    });
+    setFormData((prev) => ({
+      ...prev,
+      documentNumber: next.documentNumber,
+      sequenceNumber: next.sequenceNumber,
+      projectCode: prev.projectCode ? formatProjectCodePrefix(prev.projectCode) : next.projectPrefix,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -328,9 +362,16 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
                   required
                   value={formData.documentNumber}
                   onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
-                  placeholder="e.g. PRJ26-PJMAK-COM-PRP-001"
+                  placeholder="e.g. PRJ26-PJMAK-COM-PRP-0001"
                   className="flex-1 px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-mono font-bold text-slate-900"
                 />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Standard: <strong className="font-mono text-slate-700">PRJ26-PJMAK-DISC-TYPE-0001</strong> (4-digit sequence)</span>
+                {formData.sequenceNumber && (
+                  <span className="font-mono text-blue-900 font-semibold">Sequence #{formData.sequenceNumber}</span>
+                )}
               </div>
 
               <label className="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer pt-0.5">

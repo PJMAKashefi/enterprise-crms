@@ -2822,9 +2822,9 @@ apiRouter.post('/documents', (req: Request, res: Response) => {
 
   if (!docNumber) {
     const generated = generateTechnicalDocumentNumber({
-      projectCode: data.projectCode || 'PRJ01',
+      projectCode: data.projectCode || 'PRJ26',
       originator: data.originator || 'PJMAK',
-      discipline: data.discipline || 'TEC',
+      discipline: data.discipline || 'COM',
       documentType: data.documentType || 'PRP',
     });
     docNumber = generated.documentNumber;
@@ -2851,7 +2851,7 @@ apiRouter.post('/documents', (req: Request, res: Response) => {
     documentNumber: docNumber,
     title: data.title || 'Untitled Technical Document',
     description: data.description || '',
-    projectCode: data.projectCode || 'PRJ-2026-01',
+    projectCode: data.projectCode || 'PRJ26',
     projectName: data.projectName || 'Project 2026',
     clientCompany: data.clientCompany || 'Client Organization',
     clientContactPerson: data.clientContactPerson,

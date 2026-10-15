@@ -904,7 +904,7 @@ export function recordAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): AuditLo
 
 // Aconex-Style Multi-Discipline Sequential Document Number Generator
 // Format: [PROJECT_CODE]-[ORIGINATOR]-[DISCIPLINE]-[DOC_TYPE]-[SEQ]
-// e.g., PRJ01-PJMAK-MEC-DWG-001
+// e.g., PRJ26-PJMAK-COM-PRP-0001, PRJ26-PJMAK-COM-PRP-0002
 export function generateTechnicalDocumentNumber(params: {
   projectCode: string;
   originator?: string;
@@ -916,23 +916,56 @@ export function generateTechnicalDocumentNumber(params: {
     currentDb.technicalDocuments = [];
   }
 
-  const proj = (params.projectCode || 'PRJ01').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8) || 'PRJ01';
-  const orig = (params.originator || 'PJMAK').toUpperCase();
-  const disc = (params.discipline || 'TEC').toUpperCase();
-  const type = (params.documentType || 'PRP').toUpperCase();
-
-  // Find highest existing sequence for this discipline and project
-  const matchingDocs = currentDb.technicalDocuments.filter(
-    (d) => d.discipline === disc && d.documentType === type
-  );
-
-  let nextSeq = 1;
-  if (matchingDocs.length > 0) {
-    const maxSeq = Math.max(...matchingDocs.map((d) => d.sequenceNumber || 0));
-    nextSeq = maxSeq + 1;
+  // Standardize project code to prevent PRJ20 truncation bug
+  let proj = (params.projectCode || 'PRJ26').trim().toUpperCase();
+  if (proj === 'PRJ20' || proj === 'PRJ-20') {
+    proj = 'PRJ26';
+  } else {
+    const prjYearMatch = proj.match(/^PRJ[-_]?(?:20)?(\d{2})/);
+    if (prjYearMatch) {
+      proj = `PRJ${prjYearMatch[1]}`;
+    } else {
+      const fourDigit = proj.match(/20(\d{2})/);
+      if (fourDigit && proj.startsWith('PRJ')) {
+        proj = `PRJ${fourDigit[1]}`;
+      } else {
+        proj = proj.replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'PRJ26';
+      }
+    }
   }
 
-  const seqStr = String(nextSeq).padStart(3, '0');
+  const orig = (params.originator || 'PJMAK').toUpperCase();
+  const disc = (params.discipline || 'COM').toUpperCase();
+  const type = (params.documentType || 'PRP').toUpperCase();
+
+  // Find highest existing sequence for this discipline and doc type
+  const matchingDocs = currentDb.technicalDocuments.filter((d) => {
+    const matchesDiscipline = (d.discipline || '').toUpperCase() === disc;
+    const matchesType = (d.documentType || '').toUpperCase() === type;
+    const numberMatches = d.documentNumber && d.documentNumber.toUpperCase().includes(`-${disc}-${type}-`);
+    return (matchesDiscipline && matchesType) || numberMatches;
+  });
+
+  let maxSeq = 0;
+  for (const d of matchingDocs) {
+    let seq = typeof d.sequenceNumber === 'number' ? d.sequenceNumber : 0;
+    if (d.documentNumber) {
+      const parts = d.documentNumber.trim().split('-');
+      const lastPart = parts[parts.length - 1];
+      if (lastPart && /^\d+$/.test(lastPart)) {
+        const parsed = parseInt(lastPart, 10);
+        if (!isNaN(parsed) && parsed > seq) {
+          seq = parsed;
+        }
+      }
+    }
+    if (seq > maxSeq) {
+      maxSeq = seq;
+    }
+  }
+
+  const nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
+  const seqStr = String(nextSeq).padStart(4, '0');
   const documentNumber = `${proj}-${orig}-${disc}-${type}-${seqStr}`;
 
   return { documentNumber, sequenceNumber: nextSeq };

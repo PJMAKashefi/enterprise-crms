@@ -28,6 +28,11 @@ import {
 } from 'lucide-react';
 import type { TechnicalDocument, DocumentShare, User as AppUser } from '../types';
 import { EditTechnicalDocumentModal } from './EditTechnicalDocumentModal';
+import {
+  getNextTechnicalDocumentNumber,
+  normalizeDocumentNumber,
+  formatProjectCodePrefix,
+} from '../utils/documentNumbering';
 
 interface ShareDocumentModalProps {
   document?: TechnicalDocument | null;
@@ -167,19 +172,32 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
   // Quick Switch between Technical and Commercial before sending share
   const handleQuickSwitchDiscipline = async (targetDiscipline: 'TEC' | 'COM') => {
     if (!activeDoc) return;
-    const oldDiscipline = activeDoc.discipline;
+    
     let newDocNumber = activeDoc.documentNumber;
+    let newSeqNumber = activeDoc.sequenceNumber;
 
-    if (newDocNumber.includes(`-${oldDiscipline}-`)) {
-      newDocNumber = newDocNumber.replace(`-${oldDiscipline}-`, `-${targetDiscipline}-`);
-    } else if (newDocNumber.includes(`${oldDiscipline}-`)) {
-      newDocNumber = newDocNumber.replace(`${oldDiscipline}-`, `${targetDiscipline}-`);
+    if (internalDocs && internalDocs.length > 0) {
+      const next = getNextTechnicalDocumentNumber({
+        projectCode: activeDoc.projectCode,
+        originator: activeDoc.originator,
+        discipline: targetDiscipline,
+        documentType: 'PRP',
+        existingDocuments: internalDocs,
+        currentDocIdToExclude: activeDoc.id,
+      });
+      newDocNumber = next.documentNumber;
+      newSeqNumber = next.sequenceNumber;
+    } else {
+      newDocNumber = normalizeDocumentNumber(activeDoc.documentNumber, targetDiscipline, 'PRP');
     }
 
     const updated: TechnicalDocument = {
       ...activeDoc,
       discipline: targetDiscipline,
       documentNumber: newDocNumber,
+      sequenceNumber: newSeqNumber || activeDoc.sequenceNumber,
+      contractorDocumentNumber: newDocNumber,
+      projectCode: formatProjectCodePrefix(activeDoc.projectCode),
       documentType: 'PRP',
       reasonForIssue: targetDiscipline === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
       updatedAt: new Date().toISOString(),
@@ -966,6 +984,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
         <EditTechnicalDocumentModal
           isOpen={showEditModal}
           doc={activeDoc}
+          existingDocuments={internalDocs}
           onClose={() => setShowEditModal(false)}
           onSave={handleSaveEditedDoc}
         />
