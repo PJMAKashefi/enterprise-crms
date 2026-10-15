@@ -38,6 +38,7 @@ import {
   Sparkles,
   FolderOpen,
   Upload,
+  RefreshCw,
 } from 'lucide-react';
 import {
   TechnicalDocument,
@@ -941,7 +942,15 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDocToEditMetadata(doc);
+                            setIsEditMetadataModalOpen(true);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 border border-slate-200 cursor-pointer transition-colors"
+                          title="Click to edit document type and classification"
+                        >
                           {doc.documentType} • {DOC_TYPE_LABELS[doc.documentType] || 'Doc'}
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-50 text-blue-800 border border-blue-100">
@@ -970,7 +979,15 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
 
                     {/* 3. Discipline */}
                     <td className={`px-3 ${viewDensity === 'spacious' ? 'py-4' : 'py-2.5'} align-top`}>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold border ${disc.bg} ${disc.text} ${disc.border}`}>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDocToEditMetadata(doc);
+                          setIsEditMetadataModalOpen(true);
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold border cursor-pointer hover:shadow-xs hover:opacity-90 transition-all ${disc.bg} ${disc.text} ${disc.border}`}
+                        title="Click to change discipline (e.g. Technical ⇄ Commercial)"
+                      >
                         <span>{doc.discipline}</span>
                         <span className="text-[10px] font-medium hidden xl:inline">• {disc.label.split(' ')[0]}</span>
                       </span>
@@ -1337,20 +1354,51 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Document Classification
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          selectedDoc.discipline === 'COM'
+                            ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                            : 'bg-blue-50 text-blue-900 border-blue-200'
+                        }`}>
                           {DISCIPLINE_LABELS[selectedDoc.discipline]?.label}
                         </span>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const newDisc = selectedDoc.discipline === 'COM' ? 'TEC' : 'COM';
+                            let newDocNum = selectedDoc.documentNumber;
+                            const oldDisc = selectedDoc.discipline;
+                            if (newDocNum.includes(`-${oldDisc}-`)) {
+                              newDocNum = newDocNum.replace(`-${oldDisc}-`, `-${newDisc}-`);
+                            } else if (newDocNum.includes(`${oldDisc}-`)) {
+                              newDocNum = newDocNum.replace(`${oldDisc}-`, `${newDisc}-`);
+                            }
+                            const updatedDoc: TechnicalDocument = {
+                              ...selectedDoc,
+                              discipline: newDisc,
+                              documentNumber: newDocNum,
+                              reasonForIssue: newDisc === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
+                            };
+                            await handleSaveEditedDoc(updatedDoc);
+                          }}
+                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title="1-click switch between Technical and Commercial before sending"
+                        >
+                          <RefreshCw className="h-3 w-3 text-amber-700" />
+                          <span>Switch to {selectedDoc.discipline === 'COM' ? 'Technical (TEC)' : 'Commercial (COM)'}</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => {
                             setDocToEditMetadata(selectedDoc);
                             setIsEditMetadataModalOpen(true);
                           }}
-                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
                           title="Change Discipline (Technical vs Commercial), Document Type, Title..."
                         >
-                          <Edit3 className="h-3 w-3 text-amber-700" />
+                          <Edit3 className="h-3 w-3 text-slate-600" />
                           <span>Change / Edit</span>
                         </button>
                       </div>

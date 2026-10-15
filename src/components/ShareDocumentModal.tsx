@@ -23,8 +23,11 @@ import {
   AlertCircle,
   FolderOpen,
   Upload,
+  Edit3,
+  RefreshCw,
 } from 'lucide-react';
 import type { TechnicalDocument, DocumentShare, User as AppUser } from '../types';
+import { EditTechnicalDocumentModal } from './EditTechnicalDocumentModal';
 
 interface ShareDocumentModalProps {
   document?: TechnicalDocument | null;
@@ -33,34 +36,54 @@ interface ShareDocumentModalProps {
   isOpen?: boolean;
   onClose: () => void;
   onShareCreated?: (newShare?: DocumentShare) => void;
+  onRefreshData?: () => void;
 }
 
 export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
   document,
-  documents = [],
+  documents: initialDocuments = [],
+  currentUser,
   onClose,
   onShareCreated,
+  onRefreshData,
 }) => {
+  const [internalDocs, setInternalDocs] = useState<TechnicalDocument[]>(() => {
+    if (initialDocuments && initialDocuments.length > 0) return initialDocuments;
+    if (document) return [document];
+    return [];
+  });
+
+  // Keep internalDocs synced if props update
+  useEffect(() => {
+    if (initialDocuments && initialDocuments.length > 0) {
+      setInternalDocs(initialDocuments);
+    } else if (document) {
+      setInternalDocs([document]);
+    }
+  }, [initialDocuments, document]);
+
   const [selectedDocId, setSelectedDocId] = useState<string>(
-    document?.id || (documents && documents[0]?.id) || ''
+    document?.id || (initialDocuments && initialDocuments[0]?.id) || ''
   );
+
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Sync selectedDocId when document or documents list updates
   useEffect(() => {
     if (document?.id) {
       setSelectedDocId(document.id);
-    } else if (documents && documents.length > 0 && !selectedDocId) {
-      setSelectedDocId(documents[0].id);
+    } else if (internalDocs && internalDocs.length > 0 && !selectedDocId) {
+      setSelectedDocId(internalDocs[0].id);
     }
-  }, [document?.id, documents]);
+  }, [document?.id, internalDocs]);
 
   const activeDoc = useMemo(() => {
-    if (selectedDocId && documents.length > 0) {
-      const found = documents.find((d) => d.id === selectedDocId);
+    if (selectedDocId && internalDocs.length > 0) {
+      const found = internalDocs.find((d) => d.id === selectedDocId);
       if (found) return found;
     }
-    return document || (documents && documents[0]) || null;
-  }, [selectedDocId, documents, document]);
+    return document || (internalDocs && internalDocs[0]) || null;
+  }, [selectedDocId, internalDocs, document]);
 
   const [selectedRevision, setSelectedRevision] = useState<string>(
     activeDoc?.currentRevision || (activeDoc?.revisions?.[0]?.revision ?? 'Rev 0')
@@ -140,6 +163,62 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
       }
     }
   }, [activeDoc?.id]);
+
+  // Quick Switch between Technical and Commercial before sending share
+  const handleQuickSwitchDiscipline = async (targetDiscipline: 'TEC' | 'COM') => {
+    if (!activeDoc) return;
+    const oldDiscipline = activeDoc.discipline;
+    let newDocNumber = activeDoc.documentNumber;
+
+    if (newDocNumber.includes(`-${oldDiscipline}-`)) {
+      newDocNumber = newDocNumber.replace(`-${oldDiscipline}-`, `-${targetDiscipline}-`);
+    } else if (newDocNumber.includes(`${oldDiscipline}-`)) {
+      newDocNumber = newDocNumber.replace(`${oldDiscipline}-`, `${targetDiscipline}-`);
+    }
+
+    const updated: TechnicalDocument = {
+      ...activeDoc,
+      discipline: targetDiscipline,
+      documentNumber: newDocNumber,
+      documentType: 'PRP',
+      reasonForIssue: targetDiscipline === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch(`/api/documents/${activeDoc.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      if (res.ok) {
+        const savedDoc: TechnicalDocument = await res.json();
+        setInternalDocs((prev) => prev.map((d) => (d.id === savedDoc.id ? savedDoc : d)));
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to quick switch discipline', err);
+    }
+  };
+
+  const handleSaveEditedDoc = async (updatedDoc: TechnicalDocument) => {
+    try {
+      const res = await fetch(`/api/documents/${updatedDoc.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedDoc),
+      });
+      if (res.ok) {
+        const savedDoc: TechnicalDocument = await res.json();
+        setInternalDocs((prev) => prev.map((d) => (d.id === savedDoc.id ? savedDoc : d)));
+        if (savedDoc.clientCompany) setRecipientCompany(savedDoc.clientCompany);
+        setShowEditModal(false);
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to save edited document', err);
+    }
+  };
 
   // Schedule details
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -463,14 +542,14 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                 )}
 
                 {/* Dropdown if multiple documents exist */}
-                {documents && documents.length > 0 ? (
+                {internalDocs && internalDocs.length > 0 ? (
                   <div>
                     <select
                       value={selectedDocId}
                       onChange={(e) => setSelectedDocId(e.target.value)}
                       className="w-full text-xs font-semibold bg-white border border-teal-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-2 focus:ring-teal-500 cursor-pointer"
                     >
-                      {documents.map((d, index) => (
+                      {internalDocs.map((d, index) => (
                         <option key={d.id || `doc-${d.documentNumber || index}`} value={d.id}>
                           {d.documentNumber} — {d.title} ({d.clientCompany || 'External Client'})
                         </option>
@@ -485,6 +564,50 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
                 ) : (
                   <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
                     No proposals found in database. Click "Browse & Upload File from Computer" above to select a PDF or Word proposal!
+                  </div>
+                )}
+
+                {activeDoc && (
+                  <div className="pt-3 border-t border-teal-200/80 flex flex-wrap items-center justify-between gap-2.5 bg-white p-3 rounded-lg border border-teal-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Classification:</span>
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold uppercase border ${
+                        activeDoc.discipline === 'COM'
+                          ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                          : 'bg-blue-100 text-blue-950 border-blue-300'
+                      }`}>
+                        {activeDoc.discipline === 'COM' ? '💼 Commercial Proposal (COM)' : '🛠️ Technical Document (TEC)'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {activeDoc.documentType}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSwitchDiscipline(activeDoc.discipline === 'COM' ? 'TEC' : 'COM')}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded border shadow-2xs cursor-pointer transition-colors ${
+                          activeDoc.discipline === 'COM'
+                            ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                        }`}
+                        title="Change classification before sending share invitation"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Switch to {activeDoc.discipline === 'COM' ? 'Technical (TEC)' : 'Commercial (COM)'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEditModal(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded shadow-2xs transition-colors cursor-pointer"
+                        title="Edit full classification and metadata before sending"
+                      >
+                        <Edit3 className="w-3 h-3 text-slate-600" />
+                        <span>Edit Details...</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -837,6 +960,16 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Edit Classification & Details Modal (Allowing change between Technical & Commercial before sending) */}
+      {showEditModal && activeDoc && (
+        <EditTechnicalDocumentModal
+          isOpen={showEditModal}
+          doc={activeDoc}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleSaveEditedDoc}
+        />
+      )}
     </div>
   );
 };

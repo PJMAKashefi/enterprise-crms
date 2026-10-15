@@ -49,6 +49,7 @@ import {
   FileCode,
   Users,
   ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import {
   TechnicalDocument,
@@ -65,6 +66,11 @@ import {
 import { PjmakLogo } from './PjmakLogo';
 import { FrontPageConfigModal } from './FrontPageConfigModal';
 import { EditTechnicalDocumentModal } from './EditTechnicalDocumentModal';
+import {
+  exportTechnicalDocumentToWord,
+  printTechnicalDocumentDossier,
+  generateTechnicalDocumentPdf,
+} from '../utils/documentDossierExporter';
 
 interface TechnicalDocumentEditorModalProps {
   document: TechnicalDocument;
@@ -430,63 +436,57 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     }
   };
 
-  // Export to Word (.docx / .doc formatted)
+  // Export to Word (.doc formatted preserving entire 3-Page Front Dossier + Body Content)
   const handleExportWord = () => {
-    const contentHtml = editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml || '';
-    const wordDocContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-          <meta charset="utf-8">
-          <title>${doc.title}</title>
-          <style>
-            body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1e293b; }
-            h1, h2, h3 { color: #0f172a; }
-            h1 { font-size: 20pt; }
-            h2 { font-size: 16pt; }
-            h3 { font-size: 13pt; }
-            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
-            th { background-color: #0f172a; color: white; }
-            .header-table { width: 100%; border-bottom: 2px solid #0f172a; margin-bottom: 20px; }
-            .header-table td { border: none; padding: 4px 0; }
-            .page-break { page-break-after: always; }
-          </style>
-        </head>
-        <body>
-          <table class="header-table">
-            <tr>
-              <td style="font-size: 16pt; font-weight: bold; color: #1e3a8a;">PJMAK ENGINEERING</td>
-              <td style="text-align: right; font-size: 10pt; font-family: monospace;">Ref: ${doc.contractorDocumentNumber || doc.documentNumber} | Rev: ${doc.currentRevision}</td>
-            </tr>
-          </table>
-          <h1>${doc.title}</h1>
-          <p><strong>Project:</strong> ${doc.projectName} (${doc.projectCode})</p>
-          ${doc.clientCompany ? `<p><strong>Client:</strong> ${doc.clientCompany}</p>` : ''}
-          ${doc.contractNumber ? `<p><strong>Contract:</strong> ${doc.contractNumber}</p>` : ''}
-          <hr/>
-          <br/>
-          ${contentHtml}
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([wordDocContent], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${(doc.contractorDocumentNumber || doc.documentNumber).replace(/[\/\\]/g, '_')}_${doc.title.replace(/[\/\\]/g, '_').slice(0, 30)}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const currentDoc: TechnicalDocument = {
+      ...doc,
+      bodyHtml: editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml,
+    };
+    exportTechnicalDocumentToWord(currentDoc, doc.frontPageConfig || cfg, currentUser);
   };
 
-  // Convert Whole Document to PDF (Triggers print view of entire dossier: Page 1, 2, 3 + Content)
+  // Convert Whole Document to PDF (Triggers isolated print view of entire dossier: Pages 1, 2, 3 + Content)
   const handlePrintWholeDocument = () => {
-    setActiveTab('wholeDoc');
-    setTimeout(() => {
-      window.print();
-    }, 300);
+    const currentDoc: TechnicalDocument = {
+      ...doc,
+      bodyHtml: editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml,
+    };
+    printTechnicalDocumentDossier(currentDoc, doc.frontPageConfig || cfg, currentUser);
+  };
+
+  // Direct PDF Download (.pdf file via jsPDF)
+  const handleDirectDownloadPdf = () => {
+    const currentDoc: TechnicalDocument = {
+      ...doc,
+      bodyHtml: editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml,
+    };
+    generateTechnicalDocumentPdf(currentDoc, doc.frontPageConfig || cfg, currentUser, true);
+  };
+
+  // Quick Switch between Technical and Commercial before sending
+  const handleQuickSwitchDiscipline = async (targetDiscipline: DocumentDiscipline) => {
+    const oldDiscipline = doc.discipline;
+    let newDocNumber = doc.documentNumber;
+
+    if (newDocNumber.includes(`-${oldDiscipline}-`)) {
+      newDocNumber = newDocNumber.replace(`-${oldDiscipline}-`, `-${targetDiscipline}-`);
+    } else if (newDocNumber.includes(`${oldDiscipline}-`)) {
+      newDocNumber = newDocNumber.replace(`${oldDiscipline}-`, `${targetDiscipline}-`);
+    }
+
+    const updated: TechnicalDocument = {
+      ...doc,
+      discipline: targetDiscipline,
+      documentNumber: newDocNumber,
+      documentType: 'PRP',
+      reasonForIssue: targetDiscipline === 'COM' ? 'Commercial Proposal Offer' : 'Technical Review & Approval',
+      bodyHtml: editorRef.current ? editorRef.current.innerHTML : doc.bodyHtml,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDoc(updated);
+    await onSave(updated);
+    if (onRefreshData) onRefreshData();
   };
 
   const handleSave = async () => {
@@ -645,27 +645,49 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase">
                   {doc.currentRevision || 'Rev 0'}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-                  {doc.documentType} • {doc.documentType === 'PRP' ? 'Proposal' : doc.documentType === 'MST' ? 'Method Statement' : doc.documentType}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowEditDetailsModal(true)}
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded border uppercase transition-colors cursor-pointer flex items-center gap-1 ${
+                    doc.discipline === 'COM'
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                      : 'bg-blue-100 text-blue-900 border-blue-300 hover:bg-blue-200'
+                  }`}
+                  title="Click to edit document category (Technical vs Commercial)"
+                >
+                  <span>{doc.discipline === 'COM' ? '💼 COM' : '🛠️ TEC'}</span>
+                  <span>•</span>
+                  <span>{doc.documentType}</span>
+                  <Edit3 className="h-2.5 w-2.5 ml-0.5" />
+                </button>
               </div>
-              <h2 className="font-extrabold text-sm sm:text-base text-slate-900 truncate mt-0.5">
+              <h2
+                onClick={() => setShowEditDetailsModal(true)}
+                className="font-extrabold text-sm sm:text-base text-slate-900 truncate mt-0.5 cursor-pointer hover:text-blue-900 transition-colors"
+                title="Click to edit title and classification"
+              >
                 {doc.title}
               </h2>
             </div>
           </div>
 
-          {/* Top Actions: Front Pages Config, Word Export/Import, Print Full PDF, Save */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Top Actions: Edit Classification, Front Pages Config, Word Export, Print Full PDF, Save, Share */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Edit Classification & Details Button */}
             <button
               type="button"
               onClick={() => setShowEditDetailsModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors border border-amber-300 shadow-2xs cursor-pointer"
-              title="Change Discipline between Technical and Commercial, edit document type, title, and scope"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-2xs cursor-pointer ${
+                doc.discipline === 'COM'
+                  ? 'text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border-emerald-300'
+                  : 'text-amber-950 bg-amber-100 hover:bg-amber-200 border-amber-300'
+              }`}
+              title="Edit document classification, toggle between Technical and Commercial before sending"
             >
               <Edit3 className="h-3.5 w-3.5 text-amber-800" />
-              <span>Edit (Technical / Commercial)</span>
+              <span>
+                Edit: <strong className="underline">{doc.discipline === 'COM' ? 'Commercial' : 'Technical'}</strong>
+              </span>
             </button>
 
             {/* Front 3 Pages Setup Button */}
@@ -673,33 +695,43 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               type="button"
               onClick={() => setShowConfigModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 shadow-2xs cursor-pointer"
-              title="Manually configure fields and visibility on Pages 1, 2, and 3"
+              title="Configure fields and visibility on Pages 1, 2, and 3"
             >
               <Sliders className="h-3.5 w-3.5 text-blue-900" />
-              <span className="hidden md:inline">Configure Front Pages</span>
+              <span className="hidden lg:inline">Configure Front Pages</span>
             </button>
 
-            {/* Word Document Direct Export (.doc/.docx) */}
+            {/* Word Document Direct Export (.doc preserving whole dossier) */}
             <button
               type="button"
               onClick={handleExportWord}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-              title="Export whole document to Word format"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              title="Export complete document dossier (Pages 1-3 + prepared content) to Word"
             >
               <Download className="h-3.5 w-3.5 text-blue-700" />
-              <span className="hidden sm:inline">Export Word</span>
+              <span>Export Word</span>
             </button>
 
-            {/* Whole Document PDF Conversion */}
-            <button
-              type="button"
-              onClick={handlePrintWholeDocument}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-950 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
-              title="Convert entire document (First 3 pages + prepared content) to official PDF"
-            >
-              <Printer className="h-3.5 w-3.5 text-blue-800" />
-              <span>Convert to PDF</span>
-            </button>
+            {/* Whole Document PDF Conversion (Print-to-PDF) */}
+            <div className="inline-flex rounded-lg shadow-2xs border border-blue-300 overflow-hidden bg-blue-50">
+              <button
+                type="button"
+                onClick={handlePrintWholeDocument}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-950 hover:bg-blue-100 transition-colors cursor-pointer"
+                title="Convert entire document (First 3 pages + prepared content) to official PDF"
+              >
+                <Printer className="h-3.5 w-3.5 text-blue-800" />
+                <span>Convert to PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectDownloadPdf}
+                className="px-2 py-1.5 text-xs font-bold text-blue-900 hover:bg-blue-200 border-l border-blue-300 transition-colors cursor-pointer"
+                title="Directly download .pdf file"
+              >
+                <Download className="h-3 w-3" />
+              </button>
+            </div>
 
             {/* Save Button */}
             <button
@@ -708,7 +740,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
             >
               <Save className="h-3.5 w-3.5" />
-              <span>{isSaving ? 'Saving...' : 'Save Document'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save'}</span>
             </button>
 
             {/* Share Securely Button */}
@@ -720,7 +752,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   onShareDocument(doc);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-900 bg-teal-50 border border-teal-300 rounded-lg hover:bg-teal-100 transition-colors shadow-2xs cursor-pointer"
-                title="Save and create a 3-day secure external share invitation for this proposal"
+                title="Save and create secure external share invitation for this proposal"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-teal-700 stroke-[2.5]" />
                 <span>Share Securely</span>
@@ -1226,23 +1258,89 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
           {/* TAB 2: WHOLE DOCUMENT DOSSIER (Pages 1-3 + Content stitched for preview & PDF export) */}
           {activeTab === 'wholeDoc' && (
             <div className="w-full max-w-4xl space-y-8 print:space-y-0">
-              <div className="print:hidden bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-sm text-blue-950">
-                    Whole Document Dossier Preview (All Pages Stitched)
-                  </h4>
-                  <p className="text-xs text-blue-800">
-                    Includes the configured front 3 engineering pages followed by all prepared chapters with uniform PJMAK letterhead.
-                  </p>
+              <div className="print:hidden bg-gradient-to-r from-blue-50 via-slate-50 to-indigo-50 p-5 rounded-2xl border border-blue-200 shadow-xs space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base text-blue-950 flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-blue-800" />
+                      <span>Whole Document Dossier Preview (All Pages Stitched)</span>
+                    </h4>
+                    <p className="text-xs text-blue-900/80 mt-0.5">
+                      Full multi-page document view: Page 1 Control Sheet, Page 2 Title & Verification Matrix, Page 3 Revision & HOLD Points, and prepared chapters.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <button
+                      type="button"
+                      onClick={handlePrintWholeDocument}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                      title="Convert whole document dossier to official PDF"
+                    >
+                      <Printer className="h-4 w-4" />
+                      <span>Convert to PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDirectDownloadPdf}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-blue-950 rounded-lg text-xs font-bold border border-blue-300 shadow-2xs transition-colors cursor-pointer"
+                      title="Download direct compiled .pdf file"
+                    >
+                      <Download className="h-4 w-4 text-blue-700" />
+                      <span>Download PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportWord}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-xs font-bold border border-slate-300 shadow-2xs transition-colors cursor-pointer"
+                      title="Export whole document dossier to Word (.doc/.docx)"
+                    >
+                      <Download className="h-4 w-4 text-slate-600" />
+                      <span>Export Word</span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer"
-                >
-                  <Printer className="h-4 w-4" />
-                  <span>Print / Save as PDF</span>
-                </button>
+
+                {/* Interactive Classification Bar: Edit before sending */}
+                <div className="pt-3 border-t border-blue-200/80 flex flex-wrap items-center justify-between gap-3 bg-white/70 p-3 rounded-xl border border-blue-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700">Classification:</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase border ${
+                      doc.discipline === 'COM'
+                        ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                        : 'bg-blue-100 text-blue-950 border-blue-300'
+                    }`}>
+                      {doc.discipline === 'COM' ? '💼 Commercial Document (COM)' : '🛠️ Technical Document (TEC)'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono hidden md:inline">
+                      ({doc.documentType} • {doc.currentRevision || 'Rev 0'})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSwitchDiscipline(doc.discipline === 'COM' ? 'TEC' : 'COM')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer flex items-center gap-1 ${
+                        doc.discipline === 'COM'
+                          ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                      }`}
+                      title="Quickly switch document category before sending"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>Switch to {doc.discipline === 'COM' ? 'Technical (TEC)' : 'Commercial (COM)'} before sending</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowEditDetailsModal(true)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Edit3 className="h-3 w-3 text-slate-600" />
+                      <span>Edit Full Details...</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* PAGE 1: CONTROL SHEET (If toggled) */}
