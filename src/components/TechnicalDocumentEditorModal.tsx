@@ -60,13 +60,16 @@ import {
   Attachment,
   FrontPageConfig,
   DocumentSignOffPerson,
+  Contact,
 } from '../types';
 import { PjmakLogo } from './PjmakLogo';
 import { FrontPageConfigModal } from './FrontPageConfigModal';
+import { EditTechnicalDocumentModal } from './EditTechnicalDocumentModal';
 
 interface TechnicalDocumentEditorModalProps {
   document: TechnicalDocument;
   currentUser: User;
+  contacts?: Contact[];
   onClose: () => void;
   onSave: (updatedDoc: TechnicalDocument) => Promise<void>;
   onRefreshData?: () => void;
@@ -76,6 +79,7 @@ interface TechnicalDocumentEditorModalProps {
 export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModalProps> = ({
   document: initialDoc,
   currentUser,
+  contacts = [],
   onClose,
   onSave,
   onRefreshData,
@@ -190,6 +194,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [isImportingWord, setIsImportingWord] = useState(false);
   const [importNotification, setImportNotification] = useState<string | null>(null);
 
@@ -652,6 +657,17 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
           {/* Top Actions: Front Pages Config, Word Export/Import, Print Full PDF, Save */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Edit Classification & Details Button */}
+            <button
+              type="button"
+              onClick={() => setShowEditDetailsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors border border-amber-300 shadow-2xs cursor-pointer"
+              title="Change Discipline between Technical and Commercial, edit document type, title, and scope"
+            >
+              <Edit3 className="h-3.5 w-3.5 text-amber-800" />
+              <span>Edit (Technical / Commercial)</span>
+            </button>
+
             {/* Front 3 Pages Setup Button */}
             <button
               type="button"
@@ -2079,8 +2095,20 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
               clientRoleLabel: metadataUpdates.clientRoleLabel,
               clientLogoUrl: metadataUpdates.clientLogoUrl !== undefined ? metadataUpdates.clientLogoUrl : prev.clientLogoUrl,
             }));
-          }}
-        />
+        {/* 5. MODAL FOR EDITING CLASSIFICATION & DETAILS (TECHNICAL VS COMMERCIAL) */}
+        {showEditDetailsModal && (
+          <EditTechnicalDocumentModal
+            isOpen={showEditDetailsModal}
+            doc={doc}
+            contacts={contacts}
+            onClose={() => setShowEditDetailsModal(false)}
+            onSave={async (updatedDoc) => {
+              setDoc(updatedDoc);
+              await onSave(updatedDoc);
+              if (onRefreshData) onRefreshData();
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -96,8 +96,9 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
 
   const getStatusLabel = (item: Correspondence) => {
     if (item.type === 'outgoing') {
-      if (item.status === 'issued') return 'Ready to Send';
       if (item.status === 'sent') return 'Sent';
+      if (item.status === 'issued') return 'Ready to Send (Pending Dispatch)';
+      if (item.status === 'draft') return 'Draft (Not Sent)';
     }
     return (item.status || 'draft').replace(/_/g, ' ');
   };
@@ -1004,10 +1005,17 @@ export const CorrespondenceRegisterView: React.FC<RegisterViewProps> = ({
                       {item.type === 'outgoing' && item.status !== 'sent' ? (
                         <div>
                           <span className="font-semibold text-slate-900">{todayStr}</span>
-                          <span className="block text-[10px] text-slate-400 font-medium">(On Dispatch)</span>
+                          <span className="block text-[10px] text-amber-800 font-medium" title={`Drafted on ${item.officialDate}. Will officially stamp current date upon sending.`}>
+                            (Will date on dispatch)
+                          </span>
                         </div>
                       ) : (
-                        <span className="font-medium text-slate-800">{item.dateSent || item.officialDate}</span>
+                        <div>
+                          <span className="font-medium text-slate-800">{item.dateSent || item.officialDate}</span>
+                          {item.type === 'outgoing' && item.status === 'sent' && (
+                            <span className="block text-[10px] text-emerald-700 font-medium">Dispatched</span>
+                          )}
+                        </div>
                       )}
                     </td>
 

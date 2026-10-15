@@ -679,7 +679,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         : item.type === 'outgoing'
                         ? `To: ${item.recipientOrg}`
                         : `Internal: ${item.senderDept || 'Internal'} → ${item.recipientDept || 'Internal'}`}{' '}
-                      • {item.officialDate}
+                      • {item.type === 'outgoing' && item.status !== 'sent' ? `${todayStr} (Will date on dispatch)` : item.officialDate}
                     </div>
                   </div>
                 </div>
@@ -690,7 +690,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       item.status
                     )}`}
                   >
-                    {(item.status || 'draft').replace(/_/g, ' ')}
+                    {item.type === 'outgoing'
+                      ? item.status === 'sent'
+                        ? 'Sent'
+                        : item.status === 'issued'
+                        ? 'Ready to Send'
+                        : 'Draft (Not Sent)'
+                      : (item.status || 'draft').replace(/_/g, ' ')}
                   </span>
                   <button
                     type="button"

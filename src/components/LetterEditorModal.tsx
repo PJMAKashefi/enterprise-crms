@@ -714,12 +714,11 @@ export const LetterEditorModal: React.FC<EditorModalProps> = ({
       const destDept = departments.find((d) => d.id === destinationDeptId);
 
       const computedStatus =
-        editItem?.status ||
-        (saveMode === 'register'
-          ? (type === 'outgoing' ? 'issued' : 'registered')
-          : saveMode === 'draft'
+        saveMode === 'draft'
           ? 'draft'
-          : (type === 'outgoing' ? 'draft' : 'registered'));
+          : saveMode === 'register'
+          ? (type === 'outgoing' ? 'issued' : 'registered')
+          : editItem?.status || (type === 'outgoing' ? 'draft' : 'registered');
 
       const internalCcNames = (users || [])
         .filter((u) => internalCcUserIds.includes(u.id))

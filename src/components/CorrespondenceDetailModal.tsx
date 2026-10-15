@@ -701,7 +701,14 @@ export const CorrespondenceDetailModal: React.FC<DetailModalProps> = ({
           </div>
 
           <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
-            <span>Date: <strong className="text-slate-700">{correspondence.officialDate}</strong></span>
+            <span>
+              Date:{' '}
+              <strong className="text-slate-800">
+                {isAlreadySent
+                  ? (correspondence.dateSent || correspondence.officialDate)
+                  : `${todayStr} (Will date on dispatch)`}
+              </strong>
+            </span>
           </div>
         </div>
 

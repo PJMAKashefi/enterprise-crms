@@ -54,6 +54,7 @@ import { ShareDocumentModal } from './ShareDocumentModal';
 import { ExternalSharesManagerModal } from './ExternalSharesManagerModal';
 import { TechnicalDrawingPreview } from './TechnicalDrawingPreview';
 import { TechnicalDocumentEditorModal } from './TechnicalDocumentEditorModal';
+import { EditTechnicalDocumentModal } from './EditTechnicalDocumentModal';
 import {
   generateClientCode,
   generateDefaultCostCode,
@@ -149,6 +150,10 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
   // Word-Style Document Authoring & Studio State
   const [editingDoc, setEditingDoc] = useState<TechnicalDocument | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+
+  // Edit Document Metadata & Classification Modal State
+  const [docToEditMetadata, setDocToEditMetadata] = useState<TechnicalDocument | null>(null);
+  const [isEditMetadataModalOpen, setIsEditMetadataModalOpen] = useState(false);
 
   // Right-Click Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -1098,6 +1103,19 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setDocToEditMetadata(doc);
+                            setIsEditMetadataModalOpen(true);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition-colors cursor-pointer border border-amber-300 shadow-2xs"
+                          title="Edit Classification, Discipline (Technical vs Commercial), and Metadata"
+                        >
+                          <Edit3 className="h-3.5 w-3.5 text-amber-700" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingDoc(doc);
                             setIsEditorModalOpen(true);
                           }}
@@ -1178,6 +1196,19 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocToEditMetadata(selectedDoc);
+                    setIsEditMetadataModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                  title="Edit Classification, Discipline (Technical vs Commercial), Document Type, and Details"
+                >
+                  <Edit3 className="h-3.5 w-3.5 text-amber-700" />
+                  <span>Edit Details</span>
+                </button>
+
                 <button
                   onClick={() => {
                     setEditingDoc(selectedDoc);
@@ -1306,9 +1337,23 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Document Classification
                       </span>
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
-                        {DISCIPLINE_LABELS[selectedDoc.discipline]?.label}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
+                          {DISCIPLINE_LABELS[selectedDoc.discipline]?.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDocToEditMetadata(selectedDoc);
+                            setIsEditMetadataModalOpen(true);
+                          }}
+                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title="Change Discipline (Technical vs Commercial), Document Type, Title..."
+                        >
+                          <Edit3 className="h-3 w-3 text-amber-700" />
+                          <span>Change / Edit</span>
+                        </button>
+                      </div>
                     </div>
 
                     <h3 className="text-lg font-bold text-slate-900 leading-snug">
@@ -2522,6 +2567,20 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
         />
       )}
 
+      {/* MODAL: Edit Document Classification & Metadata */}
+      {isEditMetadataModalOpen && docToEditMetadata && (
+        <EditTechnicalDocumentModal
+          isOpen={isEditMetadataModalOpen}
+          doc={docToEditMetadata}
+          contacts={contacts}
+          onClose={() => {
+            setIsEditMetadataModalOpen(false);
+            setDocToEditMetadata(null);
+          }}
+          onSave={handleSaveEditedDoc}
+        />
+      )}
+
       {/* CONTEXT MENU: Right-Click Context Actions */}
       {contextMenu && (
         <div
@@ -2547,6 +2606,18 @@ export const TechnicalDocumentRegisterView: React.FC<TechnicalDocumentRegisterVi
           >
             <FileText className="h-4 w-4 text-blue-800" />
             <span>Open in Word Studio & Dossier</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setDocToEditMetadata(contextMenu.doc);
+              setIsEditMetadataModalOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-amber-50 hover:text-amber-900 flex items-center gap-2 font-bold text-amber-950 transition-colors cursor-pointer"
+          >
+            <Edit3 className="h-4 w-4 text-amber-700" />
+            <span>Edit Classification & Details (Technical / Commercial)</span>
           </button>
 
           <button

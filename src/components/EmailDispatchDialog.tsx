@@ -30,6 +30,8 @@ import {
   createGmailDraft,
   sendGmailMessage,
   openGmailCompose,
+  generateGmailComposeUrl,
+  generateMailtoUrl,
   GmailDraftResult,
 } from '../utils/gmailService';
 import { openYahooCompose } from '../utils/yahooMailService';
@@ -220,6 +222,11 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
   const [successInfo, setSuccessInfo] = useState<{
     message: string;
     draftUrl?: string;
+    composeUrl?: string;
+    mailtoUrl?: string;
+    to?: string;
+    cc?: string;
+    subject?: string;
     isDraft: boolean;
   } | null>(null);
 
@@ -274,7 +281,10 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
         subject: emailSubject,
         bodyText: emailBody,
       };
-      openGmailCompose(emailPayload);
+
+      const gmailUrl = generateGmailComposeUrl(emailPayload, googleUser?.email);
+      const mailtoUrl = generateMailtoUrl(emailPayload);
+      openGmailCompose(emailPayload, googleUser?.email);
 
       // Record dispatch in PJMAK registry
       await onRecordEmailAction({
@@ -288,10 +298,14 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
       });
 
       setSuccessInfo({
-        message: 'Official Letter PDF downloaded and Gmail compose opened! Letter marked as Sent with today’s date.',
+        message: 'Official Letter PDF downloaded and Gmail compose opened! Letter marked as Sent with today’s official date.',
+        composeUrl: gmailUrl,
+        mailtoUrl: mailtoUrl,
+        to: toEmail,
+        cc: ccEmails,
+        subject: emailSubject,
         isDraft: false,
       });
-      setTimeout(onClose, 2500);
     } catch (err: any) {
       console.error('Direct web compose error:', err);
       alert(err.message || 'Failed to open Gmail');
@@ -378,7 +392,9 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
         if (usedWebFallback || !token) {
           // Seamless fallback: download PDF and open Gmail Web Compose
           generateCorrespondencePdf(correspondence, settings, true);
-          openGmailCompose(emailPayload);
+          const gmailUrl = generateGmailComposeUrl(emailPayload, googleUser?.email);
+          const mailtoUrl = generateMailtoUrl(emailPayload);
+          openGmailCompose(emailPayload, googleUser?.email);
 
           await onRecordEmailAction({
             to: toEmail,
@@ -391,10 +407,14 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
           });
 
           setSuccessInfo({
-            message: `Official Letter PDF downloaded and Gmail compose opened with your letter ready! Registry status updated to Sent.`,
+            message: `Official Letter PDF downloaded and Gmail compose prepared! Recipient and CC (${ccEmails || 'none'}) pre-filled. Letter marked as ${actionChoice === 'draft' ? 'Drafted' : 'Sent with today’s date'}.`,
+            composeUrl: gmailUrl,
+            mailtoUrl: mailtoUrl,
+            to: toEmail,
+            cc: ccEmails,
+            subject: emailSubject,
             isDraft: actionChoice === 'draft',
           });
-          setTimeout(onClose, 2500);
           return;
         }
 
@@ -420,8 +440,13 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
           });
 
           setSuccessInfo({
-            message: `Draft created in your Gmail account (${googleUser?.email || 'Gmail'}). An end-of-day reminder is set for 1 hour before work ends!`,
+            message: `Draft created in your Gmail account (${googleUser?.email || 'Gmail'}). CC (${ccEmails || 'none'}) included. An end-of-day reminder is set for 1 hour before work ends!`,
             draftUrl: draftRes.webUrl,
+            composeUrl: draftRes.webUrl,
+            mailtoUrl: generateMailtoUrl(emailPayload),
+            to: toEmail,
+            cc: ccEmails,
+            subject: emailSubject,
             isDraft: true,
           });
         } else {
@@ -439,10 +464,12 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
           });
 
           setSuccessInfo({
-            message: `Official correspondence dispatched directly from your Gmail (${googleUser?.email})! Registry status updated to Sent.`,
+            message: `Official correspondence dispatched directly from your Gmail (${googleUser?.email}) to ${toEmail} with CC: ${ccEmails || 'none'}! Registry status updated to Sent with today’s date.`,
+            to: toEmail,
+            cc: ccEmails,
+            subject: emailSubject,
             isDraft: false,
           });
-          setTimeout(onClose, 2000);
         }
       } else {
         // 3. Handling Yahoo Mail
@@ -528,36 +555,95 @@ export const EmailDispatchDialog: React.FC<EmailDispatchDialogProps> = ({
 
         {/* Content */}
         {successInfo ? (
-          <div className="p-8 text-center space-y-4">
+          <div className="p-6 text-center space-y-4">
             <div className="h-14 w-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <div className="text-base font-bold text-slate-900">
-              {successInfo.isDraft ? 'Saved to Email Drafts' : 'Dispatched Successfully'}
+            <div>
+              <div className="text-base font-bold text-slate-900">
+                {successInfo.isDraft ? 'Saved to Email Drafts' : 'Official Letter Dispatched & Ready'}
+              </div>
+              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed mt-1">
+                {successInfo.message}
+              </p>
             </div>
-            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-              {successInfo.message}
-            </p>
 
-            {successInfo.draftUrl && (
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            {/* Transmittal Summary Card */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-left space-y-2 text-xs">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-medium shrink-0">Recipient (To):</span>
+                <span className="font-mono font-bold text-slate-900 text-right truncate">
+                  {successInfo.to || toEmail}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-medium shrink-0">Carbon Copy (CC):</span>
+                <div className="text-right">
+                  {successInfo.cc || ccEmails ? (
+                    <span className="font-mono font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 inline-block text-[11px]">
+                      ✓ {successInfo.cc || ccEmails}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 italic">None specified</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-medium shrink-0">Subject:</span>
+                <span className="font-semibold text-slate-800 text-right truncate max-w-[280px]">
+                  {successInfo.subject || emailSubject}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200">
+                <span className="text-slate-500 font-medium shrink-0">Official Date:</span>
+                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {new Date().toISOString().split('T')[0]} (Dispatched Today)
+                </span>
+              </div>
+            </div>
+
+            {/* Direct Action Links (Immune to Popup Blockers) */}
+            <div className="pt-2 space-y-2.5">
+              {(successInfo.composeUrl || successInfo.draftUrl) && (
                 <a
-                  href={successInfo.draftUrl}
+                  href={successInfo.composeUrl || successInfo.draftUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-900 hover:bg-blue-950 text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                 >
-                  <span>Open in Gmail</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <ExternalLink className="h-4 w-4 text-blue-200" />
+                  <span>Open in Gmail Web Compose (To & CC Pre-filled)</span>
                 </a>
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+              )}
+
+              {successInfo.mailtoUrl && (
+                <a
+                  href={successInfo.mailtoUrl}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-colors cursor-pointer"
                 >
-                  Close Window
+                  <Mail className="h-4 w-4 text-slate-500" />
+                  <span>Open in Default Desktop Mail App (mailto:)</span>
+                </a>
+              )}
+
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => generateCorrespondencePdf(correspondence, settings, true)}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Download PDF Letter Again</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-lg transition-colors cursor-pointer"
+                >
+                  Done & Back to Workspace
                 </button>
               </div>
-            )}
+            </div>
           </div>
         ) : (
           <form onSubmit={handleExecute} className="p-5 space-y-4 text-xs">

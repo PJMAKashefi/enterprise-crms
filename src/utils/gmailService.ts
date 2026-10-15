@@ -187,32 +187,32 @@ export async function sendGmailMessage(
 }
 
 /**
- * Generates official Gmail Web Compose URL (bypasses OAuth/popup blockers)
+/**
+ * Generates official Gmail Web Compose URL (direct /u/0/ endpoint that preserves CC)
  */
-export function generateGmailComposeUrl(payload: EmailPayload): string {
-  // Strip spaces around commas for strict email URL compatibility
+export function generateGmailComposeUrl(payload: EmailPayload, userEmail?: string): string {
+  // Strip extraneous spaces around commas for strict email URL compatibility
   const cleanTo = (payload.to || '')
     .split(/[,;\s]+/)
     .map((e) => e.trim())
-    .filter((e) => e.length > 0)
+    .filter((e) => e.length > 0 && e.includes('@'))
     .join(',');
 
   const cleanCc = (payload.cc || '')
     .split(/[,;\s]+/)
     .map((e) => e.trim())
-    .filter((e) => e.length > 0)
+    .filter((e) => e.length > 0 && e.includes('@'))
     .join(',');
 
   const cleanBcc = (payload.bcc || '')
     .split(/[,;\s]+/)
     .map((e) => e.trim())
-    .filter((e) => e.length > 0)
+    .filter((e) => e.length > 0 && e.includes('@'))
     .join(',');
 
   const params = new URLSearchParams();
   params.set('view', 'cm');
   params.set('fs', '1');
-  params.set('tf', 'cm');
   if (cleanTo) params.set('to', cleanTo);
   if (cleanCc) params.set('cc', cleanCc);
   if (cleanBcc) params.set('bcc', cleanBcc);
@@ -221,14 +221,54 @@ export function generateGmailComposeUrl(payload: EmailPayload): string {
   const plainBody = (payload.bodyText || payload.bodyHtml || '')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]*>/g, '');
+    .replace(/<[^>]*>/g, '')
+    .trim();
 
   if (plainBody) params.set('body', plainBody);
 
-  return `https://mail.google.com/mail/?${params.toString()}`;
+  // Directly target account 0 or specific email to avoid 302 redirects that drop the CC parameter
+  const accountPath = userEmail ? encodeURIComponent(userEmail) : '0';
+  return `https://mail.google.com/mail/u/${accountPath}/?${params.toString()}`;
 }
 
-export function openGmailCompose(payload: EmailPayload): Window | null {
-  const url = generateGmailComposeUrl(payload);
-  return window.open(url, '_blank', 'noopener,noreferrer');
+/**
+ * Generates standard RFC mailto URL for desktop mail clients (Outlook, Apple Mail, Thunderbird, etc.)
+ */
+export function generateMailtoUrl(payload: EmailPayload): string {
+  const cleanTo = (payload.to || '')
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0 && e.includes('@'))
+    .join(',');
+
+  const cleanCc = (payload.cc || '')
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0 && e.includes('@'))
+    .join(',');
+
+  const plainBody = (payload.bodyText || payload.bodyHtml || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+
+  const params = new URLSearchParams();
+  if (cleanCc) params.set('cc', cleanCc);
+  if (payload.bcc) params.set('bcc', payload.bcc);
+  if (payload.subject) params.set('subject', payload.subject);
+  if (plainBody) params.set('body', plainBody);
+
+  const qs = params.toString();
+  return `mailto:${cleanTo}${qs ? `?${qs}` : ''}`;
+}
+
+export function openGmailCompose(payload: EmailPayload, userEmail?: string): Window | null {
+  const url = generateGmailComposeUrl(payload, userEmail);
+  try {
+    return window.open(url, '_blank', 'noopener,noreferrer');
+  } catch (err) {
+    console.warn('Could not open Gmail window directly (popup blocker):', err);
+    return null;
+  }
 }
