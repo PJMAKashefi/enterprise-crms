@@ -118,6 +118,7 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
       ...prev,
       discipline: newDiscipline,
       documentNumber: newDocNumber,
+      contractorDocumentNumber: newDocNumber,
       sequenceNumber: newSeq || prev.sequenceNumber,
       // If switching to commercial, ensure reasonable reasonForIssue if was generic
       reasonForIssue:
@@ -149,6 +150,7 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
       ...prev,
       documentType: newType,
       documentNumber: newDocNumber,
+      contractorDocumentNumber: newDocNumber,
       sequenceNumber: newSeq || prev.sequenceNumber,
     }));
   };
@@ -165,6 +167,7 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
     setFormData((prev) => ({
       ...prev,
       documentNumber: next.documentNumber,
+      contractorDocumentNumber: next.documentNumber,
       sequenceNumber: next.sequenceNumber,
       projectCode: prev.projectCode ? formatProjectCodePrefix(prev.projectCode) : next.projectPrefix,
     }));
@@ -184,10 +187,13 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
     setSaving(true);
     setError(null);
     try {
+      const cleanDocNumber = normalizeDocumentNumber(formData.documentNumber.trim());
       await onSave({
         ...formData,
         title: formData.title.trim(),
-        documentNumber: formData.documentNumber.trim(),
+        documentNumber: cleanDocNumber,
+        contractorDocumentNumber: cleanDocNumber,
+        projectCode: formatProjectCodePrefix(formData.projectCode),
         documentScope: formData.documentScope?.trim() || undefined,
         description: formData.description?.trim() || undefined,
       });
@@ -361,7 +367,7 @@ export const EditTechnicalDocumentModal: React.FC<EditTechnicalDocumentModalProp
                   type="text"
                   required
                   value={formData.documentNumber}
-                  onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, documentNumber: e.target.value, contractorDocumentNumber: e.target.value }))}
                   placeholder="e.g. PRJ26-PJMAK-COM-PRP-0001"
                   className="flex-1 px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-mono font-bold text-slate-900"
                 />

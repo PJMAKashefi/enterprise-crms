@@ -2932,9 +2932,14 @@ apiRouter.put('/documents/:id', (req: Request, res: Response) => {
 
   const currentUser = getCurrentUser();
   const existing = db.technicalDocuments[index];
+  const incomingDocNumber = req.body.documentNumber || existing.documentNumber;
+  const contractorDocNumber = req.body.contractorDocumentNumber || incomingDocNumber;
+
   const updated: TechnicalDocument = {
     ...existing,
     ...req.body,
+    documentNumber: incomingDocNumber,
+    contractorDocumentNumber: contractorDocNumber,
     updatedAt: new Date().toISOString(),
   };
 
@@ -3448,7 +3453,7 @@ apiRouter.post('/external/comments/:commentId/reply', (req: Request, res: Respon
     authorId: authorRole === 'internal' ? getCurrentUser().id : (comment.authorId || 'external-reviewer'),
     authorName: authorName || (authorRole === 'internal' ? getCurrentUser().name : 'External Reviewer'),
     authorRole: authorRole || 'internal',
-    authorCompany: authorCompany || (authorRole === 'internal' ? 'PJMAK Engineering' : undefined),
+    authorCompany: authorCompany || (authorRole === 'internal' ? 'PJMAK' : undefined),
     text: text.trim(),
     createdAt: new Date().toISOString(),
   };
