@@ -3,7 +3,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm 12mm 15mm;
+    margin: 0; /* Eliminates browser URL headers and footers (e.g. localhost:3000, date) */
   }
 
   * {

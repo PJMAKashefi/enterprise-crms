@@ -1434,11 +1434,11 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
                     <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-slate-900">
                       <div className="p-2.5 font-semibold">
-                        Contract: <span className="font-mono font-bold">{cfg.showContractNumber ? (doc.contractNumber || '') : ''}</span>
-                        {!cfg.showContractNumber && <span className="text-slate-400 font-normal italic ml-2">N/A (Proposal)</span>}
+                        Client Name: <span className="font-bold text-slate-950">{doc.clientCompany || 'Case Services'}</span>
                       </div>
                       <div className="p-2.5 font-semibold">
-                        Scope: <span className="font-bold">{cfg.showScopeOfWorks ? (doc.documentScope || doc.projectName) : doc.projectName}</span>
+                        Contract Ref: <span className="font-mono font-bold">{cfg.showContractNumber && doc.contractNumber ? doc.contractNumber : ''}</span>
+                        {(!cfg.showContractNumber || !doc.contractNumber) && <span className="text-slate-400 font-normal italic ml-2">N/A (Proposal / Tender)</span>}
                       </div>
                     </div>
 
@@ -1456,7 +1456,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                         Contractor Document Number: <span className="font-mono font-bold">{doc.contractorDocumentNumber || doc.documentNumber}</span>
                       </div>
                       <div className="p-2.5 font-semibold">
-                        Contractor Revision No: <span className="font-mono font-bold">{doc.contractorRevisionNo || doc.currentRevision || '0'}</span>
+                        Contractor Revision No: <span className="font-mono font-bold">{formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision || '0')}</span>
                       </div>
                     </div>
 
@@ -1491,7 +1491,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                           {doc.revisions && doc.revisions.length > 0 ? (
                             doc.revisions.map((rev, idx) => (
                               <tr key={rev.id || idx}>
-                                <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{rev.revision}</td>
+                                <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{formatRevisionLabel(rev.revision)}</td>
                                 <td className="p-2 border-r-2 border-slate-900">{rev.reasonForIssue}</td>
                                 <td className="p-2 border-r-2 border-slate-900 font-mono">{rev.issueDate || rev.date}</td>
                                 <td className="p-2 border-r-2 border-slate-900 font-semibold">{rev.signOff?.preparedBy?.name || rev.issuedByUserName || doc.createdByUserName || 'Author'}</td>
@@ -1501,7 +1501,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                             ))
                           ) : (
                             <tr>
-                              <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{doc.currentRevision}</td>
+                              <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{formatRevisionLabel(doc.currentRevision)}</td>
                               <td className="p-2 border-r-2 border-slate-900">{doc.reasonForIssue}</td>
                               <td className="p-2 border-r-2 border-slate-900 font-mono">{doc.revisionDate}</td>
                               <td className="p-2 border-r-2 border-slate-900 font-semibold">{doc.createdByUserName || currentUser.name}</td>
@@ -1834,20 +1834,38 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 </div>
               )}
 
-              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With official letterhead) */}
-              <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 font-sans text-slate-800 space-y-6 print:shadow-none print:border-none min-h-[900px]">
-                {renderStandardLetterhead('Document Body & Technical Content')}
-
-                {/* Rendered HTML Content */}
-                <div
-                  className="prose prose-slate max-w-none text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: doc.bodyHtml || '' }}
-                />
-
-                <div className="pt-8 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>PJMAK Engineering • {doc.projectName}</span>
-                  <span>End of Technical Deliverable</span>
-                </div>
+              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With official letterhead on every page) */}
+              <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 font-sans text-slate-800 space-y-6 print:shadow-none print:border-none print:p-0 min-h-[900px]">
+                <table className="w-full border-collapse border-none m-0 p-0">
+                  <thead className="print:table-header-group">
+                    <tr>
+                      <th className="border-none p-0 pb-4 font-normal text-left">
+                        {renderStandardLetterhead('Document Body & Technical Content')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border-none p-0 align-top">
+                        {/* Rendered HTML Content */}
+                        <div
+                          className="prose prose-slate max-w-none text-sm leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: doc.bodyHtml || '' }}
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot className="print:table-footer-group">
+                    <tr>
+                      <td className="border-none pt-8">
+                        <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                          <span>PJMAK Engineering • {doc.projectName}</span>
+                          <span>Doc Ref: {doc.contractorDocumentNumber || doc.documentNumber} | Rev: {formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}
@@ -1867,11 +1885,11 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
                 <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-slate-900">
                   <div className="p-2.5 font-semibold">
-                    Contract: <span className="font-mono font-bold">{cfg.showContractNumber ? (doc.contractNumber || '') : ''}</span>
-                    {!cfg.showContractNumber && <span className="text-slate-400 font-normal italic ml-2">N/A (Proposal)</span>}
+                    Client Name: <span className="font-bold text-slate-950">{doc.clientCompany || 'Case Services'}</span>
                   </div>
                   <div className="p-2.5 font-semibold">
-                    Scope: <span className="font-bold">{cfg.showScopeOfWorks ? (doc.documentScope || doc.projectName) : doc.projectName}</span>
+                    Contract Ref: <span className="font-mono font-bold">{cfg.showContractNumber && doc.contractNumber ? doc.contractNumber : ''}</span>
+                    {(!cfg.showContractNumber || !doc.contractNumber) && <span className="text-slate-400 font-normal italic ml-2">N/A (Proposal / Tender)</span>}
                   </div>
                 </div>
 
@@ -1889,7 +1907,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                     Contractor Document Number: <span className="font-mono font-bold">{doc.contractorDocumentNumber || doc.documentNumber}</span>
                   </div>
                   <div className="p-2.5 font-semibold">
-                    Contractor Revision No: <span className="font-mono font-bold">{doc.contractorRevisionNo || doc.currentRevision || '0'}</span>
+                    Contractor Revision No: <span className="font-mono font-bold">{formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision || '0')}</span>
                   </div>
                 </div>
 
@@ -1935,7 +1953,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                       {doc.revisions && doc.revisions.length > 0 ? (
                         doc.revisions.map((rev, idx) => (
                           <tr key={rev.id || idx}>
-                            <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{rev.revision}</td>
+                            <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{formatRevisionLabel(rev.revision)}</td>
                             <td className="p-2 border-r-2 border-slate-900">{rev.reasonForIssue}</td>
                             <td className="p-2 border-r-2 border-slate-900 font-mono">{rev.issueDate || rev.date}</td>
                             <td className="p-2 border-r-2 border-slate-900 font-semibold">{rev.signOff?.preparedBy?.name || rev.issuedByUserName || doc.createdByUserName || 'Author'}</td>
@@ -1945,7 +1963,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                         ))
                       ) : (
                         <tr>
-                          <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{doc.currentRevision}</td>
+                          <td className="p-2 border-r-2 border-slate-900 font-mono font-bold">{formatRevisionLabel(doc.currentRevision)}</td>
                           <td className="p-2 border-r-2 border-slate-900">{doc.reasonForIssue}</td>
                           <td className="p-2 border-r-2 border-slate-900 font-mono">{doc.revisionDate}</td>
                           <td className="p-2 border-r-2 border-slate-900 font-semibold">{doc.createdByUserName || currentUser.name}</td>

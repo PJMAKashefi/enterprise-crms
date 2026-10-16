@@ -140,10 +140,10 @@ export function buildDossierHtml(
             </td>
           </tr>
           <tr>
+            <td style="${tdHeaderStyle}">Client Name:</td>
+            <td style="${tdValueStyle}"><strong>${doc.clientCompany || 'Case Services'}</strong></td>
             <td style="${tdHeaderStyle}">Contract Ref:</td>
             <td style="${tdValueStyle}"><strong>${cfg.showContractNumber && doc.contractNumber ? doc.contractNumber : 'N/A (Proposal / Tender)'}</strong></td>
-            <td style="${tdHeaderStyle}">Document Scope:</td>
-            <td style="${tdValueStyle}"><strong>${cfg.showScopeOfWorks ? (doc.documentScope || doc.projectName) : doc.projectName}</strong></td>
           </tr>
           <tr>
             <td style="${tdHeaderStyle}">Document Type:</td>
@@ -155,7 +155,7 @@ export function buildDossierHtml(
             <td style="${tdHeaderStyle}">Contractor Doc Number:</td>
             <td style="${tdValueStyle} font-family: monospace; font-weight: bold; color: #1E3A8A;">${contractorDocNum}</td>
             <td style="${tdHeaderStyle}">Contractor Revision:</td>
-            <td style="${tdValueStyle} font-family: monospace; font-weight: bold;">${doc.contractorRevisionNo || currentRev}</td>
+            <td style="${tdValueStyle} font-family: monospace; font-weight: bold;">${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}</td>
           </tr>
           <tr>
             <td style="${tdHeaderStyle}">Originator / Authority:</td>
@@ -184,7 +184,7 @@ export function buildDossierHtml(
               ${(doc.revisions && doc.revisions.length > 0)
                 ? doc.revisions.map((rev) => `
                   <tr>
-                    <td style="${tdStyle} font-family: monospace; font-weight: bold; background-color: #F8FAFC; text-align: center;">${rev.revision}</td>
+                    <td style="${tdStyle} font-family: monospace; font-weight: bold; background-color: #F8FAFC; text-align: center;">${formatRevisionLabel(rev.revision)}</td>
                     <td style="${tdStyle} font-weight: 600;">${rev.reasonForIssue}</td>
                     <td style="${tdStyle} font-family: monospace;">${rev.issueDate || issueDate}</td>
                     <td style="${tdStyle}">${rev.signOff?.preparedBy?.name || rev.issuedByUserName || authorName}</td>
@@ -194,7 +194,7 @@ export function buildDossierHtml(
                 `).join('')
                 : `
                   <tr>
-                    <td style="${tdStyle} font-family: monospace; font-weight: bold; background-color: #F8FAFC; text-align: center;">${currentRev}</td>
+                    <td style="${tdStyle} font-family: monospace; font-weight: bold; background-color: #F8FAFC; text-align: center;">${formatRevisionLabel(currentRev)}</td>
                     <td style="${tdStyle} font-weight: 600;">${issueReason}</td>
                     <td style="${tdStyle} font-family: monospace;">${issueDate}</td>
                     <td style="${tdStyle}">${authorName}</td>
@@ -411,21 +411,39 @@ export function buildDossierHtml(
   `);
 
   const pageContentHtml = `
-    <div class="dossier-page page-content" style="${isWord ? 'page-break-before: always; mso-break-type: page-break;' : 'page-break-before: always; break-before: page; min-height: 980px;'} padding: 10px 0;">
-      ${renderLetterheadHtml('Document Body & Technical Content')}
-
-      <div class="document-body" style="font-size: 10.5pt; line-height: 1.65; color: #1E293B;">
-        ${bodyContent}
-      </div>
-
-      <div style="margin-top: 40px; padding-top: 14px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace; page-break-inside: avoid;">
-        <table style="width: 100%; border-collapse: collapse;">
+    <div class="dossier-page page-content" style="${isWord ? 'page-break-before: always; mso-break-type: page-break;' : 'page-break-before: always; break-before: page;'}">
+      <table class="flow-layout-table" style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
+        <thead style="display: table-header-group;">
           <tr>
-            <td>PJMAK Engineering • ${doc.projectName}</td>
-            <td style="text-align: right;">End of Technical Deliverable</td>
+            <th style="border: none; padding: 0 0 16px 0; margin: 0; font-weight: normal; text-align: left;">
+              ${renderLetterheadHtml('Document Body & Technical Content')}
+            </th>
           </tr>
-        </table>
-      </div>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: none; padding: 0; vertical-align: top;">
+              <div class="document-body" style="font-size: 10.5pt; line-height: 1.65; color: #1E293B;">
+                ${bodyContent}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot style="display: table-footer-group;">
+          <tr>
+            <td style="border: none; padding: 14px 0 0 0;">
+              <div style="padding-top: 8px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace;">
+                <table style="width: 100%; border-collapse: collapse; border: none;">
+                  <tr>
+                    <td style="border: none; padding: 0; color: #64748B;">PJMAK Engineering • ${doc.projectName}</td>
+                    <td style="border: none; padding: 0; text-align: right; color: #64748B;">Doc Ref: ${contractorDocNum} | Rev: ${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   `;
 
@@ -533,7 +551,7 @@ export function printTechnicalDocumentDossier(
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm 15mm 12mm 15mm;
+            margin: 0; /* Completely eliminates browser URL headers and footers (e.g. localhost:3000, date) */
           }
           * {
             box-sizing: border-box;
@@ -549,9 +567,14 @@ export function printTechnicalDocumentDossier(
             padding: 0;
             width: 100%;
           }
+          .dossier-page {
+            box-sizing: border-box;
+            padding: 12mm 15mm 12mm 15mm;
+            width: 100%;
+          }
           .letterhead-container {
             width: 100%;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             page-break-inside: avoid;
             break-inside: avoid;
           }
@@ -567,7 +590,7 @@ export function printTechnicalDocumentDossier(
           p { margin: 0 0 12px 0; line-height: 1.65; text-align: justify; }
           ul, ol { margin: 0 0 14px 0; padding-left: 24px; }
           li { margin-bottom: 5px; line-height: 1.55; }
-          .page-1, .page-2, .page-3, .page-content {
+          .page-1, .page-2, .page-3 {
             page-break-after: always !important;
             break-after: page !important;
           }
@@ -584,8 +607,16 @@ export function printTechnicalDocumentDossier(
             page-break-inside: avoid;
             page-break-after: auto;
           }
-          thead {
-            display: table-header-group;
+          .flow-layout-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+          }
+          .flow-layout-table thead, thead {
+            display: table-header-group !important;
+          }
+          .flow-layout-table tfoot, tfoot {
+            display: table-footer-group !important;
           }
           .document-body table th {
             background-color: #0B1E36 !important;
@@ -761,8 +792,8 @@ export function generateTechnicalDocumentPdf(
   // Control details grid (4 rows)
   const rows = [
     [
+      { label: 'Client Name:', val: doc.clientCompany || 'Case Services' },
       { label: 'Contract Ref:', val: cfg.showContractNumber && doc.contractNumber ? doc.contractNumber : 'N/A (Proposal / Tender)' },
-      { label: 'Document Scope:', val: cfg.showScopeOfWorks ? (doc.documentScope || doc.projectName) : doc.projectName },
     ],
     [
       { label: 'Document Type:', val: `${doc.documentType} — ${doc.documentType === 'PRP' ? 'Proposal' : doc.documentType}` },
