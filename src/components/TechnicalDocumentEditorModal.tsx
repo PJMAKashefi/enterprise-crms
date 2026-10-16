@@ -70,6 +70,8 @@ import {
   exportTechnicalDocumentToWord,
   printTechnicalDocumentDossier,
   generateTechnicalDocumentPdf,
+  formatRevisionLabel,
+  formatImportedWordHtml,
 } from '../utils/documentDossierExporter';
 import {
   getNextTechnicalDocumentNumber,
@@ -410,7 +412,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     }
   };
 
-  // Import Word (.docx) file directly into editor using Mammoth
+  // Import Word (.docx) file directly into editor using Mammoth and apply structured PDF criteria
   const handleWordFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -424,7 +426,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     try {
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
-      const convertedHtml = result.value;
+      const convertedHtml = formatImportedWordHtml(result.value);
 
       if (editorRef.current) {
         editorRef.current.innerHTML = convertedHtml;
@@ -436,7 +438,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
         calculateStats(editorRef.current.innerText);
       }
 
-      setImportNotification(`Successfully imported "${file.name}" into Word editor!`);
+      setImportNotification(`Successfully imported and formatted "${file.name}" with structured criteria!`);
       setTimeout(() => setImportNotification(null), 5000);
     } catch (err) {
       console.error('Failed to import Word file:', err);
@@ -447,6 +449,21 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
         wordImportInputRef.current.value = '';
       }
     }
+  };
+
+  // Re-apply structured PDF & corporate formatting criteria to editor body
+  const handleBeautifyContent = () => {
+    if (!editorRef.current) return;
+    const currentHtml = editorRef.current.innerHTML;
+    const formattedHtml = formatImportedWordHtml(currentHtml);
+    editorRef.current.innerHTML = formattedHtml;
+    setDoc((prev) => ({
+      ...prev,
+      bodyHtml: formattedHtml,
+    }));
+    calculateStats(editorRef.current.innerText);
+    setImportNotification('Applied structured PDF formatting criteria (headings, tables, and spacing)!');
+    setTimeout(() => setImportNotification(null), 4000);
   };
 
   // Export to Word (.doc formatted preserving entire 3-Page Front Dossier + Body Content)
@@ -553,23 +570,49 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     }));
   };
 
-  const handleRemoveHoldPoint = (index: number) => {
-    setDoc((prev) => ({
-      ...prev,
-      holdPoints: (prev.holdPoints || []).filter((_, i) => i !== index),
-    }));
+  const handleUpdateRevisionHistory = (
+    index: number,
+    field: 'revision' | 'section' | 'changeDescription',
+    value: string
+  ) => {
+    setDoc((prev) => {
+      const items = [...(prev.revisionHistoryItems || [])];
+      if (items[index]) {
+        items[index] = { ...items[index], [field]: value };
+      }
+      return { ...prev, revisionHistoryItems: items };
+    });
+  };
+
+  const handleUpdateHoldPoint = (
+    index: number,
+    field: 'nr' | 'description' | 'responsibleParty' | 'status',
+    value: any
+  ) => {
+    setDoc((prev) => {
+      const list = [...(prev.holdPoints || [])];
+      if (list[index]) {
+        list[index] = { ...list[index], [field]: field === 'nr' ? Number(value) || 1 : value };
+      }
+      return { ...prev, holdPoints: list };
+    });
   };
 
   const handleAddRevisionHistory = () => {
-    const nextRev = doc.currentRevision || 'Rev 1';
+    const currentItems = doc.revisionHistoryItems || [];
+    const nextRev = currentItems.length === 0
+      ? formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)
+      : String(currentItems.length);
     const newRevItem = {
       revision: nextRev,
       section: 'All',
-      changeDescription: 'Updated technical details and client remarks',
+      changeDescription: currentItems.length === 0
+        ? 'Initial Issue for Client Review and Approval'
+        : 'Incorporated Client Review Comments & Technical Updates',
     };
     setDoc((prev) => ({
       ...prev,
-      revisionHistoryItems: [...(prev.revisionHistoryItems || []), newRevItem],
+      revisionHistoryItems: [...currentItems, newRevItem],
     }));
   };
 
@@ -580,52 +623,62 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     }));
   };
 
-  // Reusable Page 2-style Letterhead used across ALL pages as requested!
+  const handleRemoveHoldPoint = (index: number) => {
+    setDoc((prev) => ({
+      ...prev,
+      holdPoints: (prev.holdPoints || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  // Reusable 2-tier Letterhead matching the attached image on ALL pages
   const renderStandardLetterhead = (pageLabel?: string) => {
-    const clientLogo = doc.clientLogoUrl || doc.frontPageConfig?.clientLogoUrl;
+    const clientCompany = doc.clientCompany || 'Case Services';
+    const clientRole = doc.clientRoleLabel || doc.frontPageConfig?.clientRoleLabel || 'CLIENT / OPERATOR';
+    const docNum = doc.contractorDocumentNumber || doc.documentNumber;
+    const revFormatted = formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision);
+
     return (
-      <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
-            <PjmakLogo variant="compact" size="md" />
+      <div className="w-full mb-6 print:mb-4 select-none">
+        {/* Tier 1: PJMAK on left in dark blue, Client on right in bold blue */}
+        <div className="flex items-center justify-between pb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+              <PjmakLogo variant="compact" size="md" />
+            </div>
+            <div>
+              <span className="font-black text-2xl sm:text-3xl tracking-tight text-[#0B1E36] block">
+                PJMAK
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="font-black text-xl text-blue-950 tracking-tight block">PJMAK</span>
+
+          <div className="text-right">
+            <span className="font-extrabold text-xl sm:text-2xl text-[#1E40AF] tracking-tight block">
+              {clientCompany}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider block">
+              {clientRole}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-right">
-          {clientLogo && (
-            <div className="h-11 max-w-[140px] flex items-center justify-center p-1 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden shrink-0">
-              <img
-                src={clientLogo}
-                alt={doc.clientCompany || 'Client Logo'}
-                className="max-h-full max-w-full object-contain"
-              />
-            </div>
-          )}
-          <div>
-            {doc.clientCompany ? (
-              <>
-                <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
-                  {doc.clientCompany}
-                </span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                  {doc.clientRoleLabel || doc.frontPageConfig?.clientRoleLabel || 'Client / Operator'}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="font-extrabold text-lg text-slate-900 tracking-tight block">
-                  {doc.projectName}
-                </span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
-                  {doc.projectCode} • {pageLabel || 'Engineering Deliverable'}
-                </span>
-              </>
-            )}
+        {/* Solid Dark Blue Divider */}
+        <div className="h-[2.5px] bg-[#0B1E36] w-full" />
+
+        {/* Tier 2: Sub-bar with Document Title & Reference Metadata */}
+        <div className="flex items-center justify-between py-1.5 text-xs">
+          <div className="font-bold text-xs sm:text-sm text-[#0B1E36] uppercase tracking-tight truncate max-w-[65%]">
+            {doc.title}
+          </div>
+          <div className="text-right text-[11px] sm:text-xs text-slate-600 font-medium shrink-0 font-mono">
+            <span>Doc Ref: <strong className="text-slate-900 font-bold">{docNum}</strong></span>
+            <span className="mx-2 text-slate-300">|</span>
+            <span>Rev: <strong className="text-slate-900 font-bold">{revFormatted}</strong></span>
           </div>
         </div>
+
+        {/* Subtle bottom line */}
+        <div className="h-px bg-slate-200 w-full" />
       </div>
     );
   };
@@ -892,7 +945,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
             ) : (
               <span className="text-slate-400 italic">No Contract (Proposal / Tender)</span>
             )}
-            <span>Rev: <strong className="text-slate-700">{doc.currentRevision}</strong></span>
+            <span>Rev: <strong className="text-slate-700">{formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}</strong></span>
           </div>
         </div>
 
@@ -1168,6 +1221,17 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                     <span>{isImportingWord ? 'Importing...' : 'Open Word (.docx)'}</span>
                   </button>
 
+                  {/* Format & Beautify Structured PDF Criteria */}
+                  <button
+                    type="button"
+                    onClick={handleBeautifyContent}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-blue-900 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors shadow-2xs cursor-pointer"
+                    title="Apply structured PDF formatting criteria (headings, tables, and spacing)"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-blue-800" />
+                    <span>Format PDF Design</span>
+                  </button>
+
                   {/* Copy Text */}
                   <button
                     type="button"
@@ -1233,22 +1297,8 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
               {/* Physical A4 Paper Canvas */}
               <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 min-h-[780px] font-sans text-slate-800 space-y-6 flex-1">
-                {/* Standard Page 2 Letterhead across all pages */}
+                {/* Standard Letterhead across all pages */}
                 {renderStandardLetterhead('Technical Deliverable')}
-
-                {/* Running Header on Paper */}
-                <div className="border-b border-slate-200 pb-2 flex items-center justify-between text-xs text-slate-500 font-mono">
-                  <div>
-                    <span className="font-bold text-slate-800 block">{doc.title.toUpperCase()}</span>
-                    <span>Doc Ref: <strong className="text-slate-900">{doc.contractorDocumentNumber || doc.documentNumber}</strong></span>
-                  </div>
-                  <div className="text-right">
-                    {cfg.showClientDocNumber && doc.clientDocumentNumber && (
-                      <span>Client Ref: <strong className="text-slate-900">{doc.clientDocumentNumber}</strong></span>
-                    )}
-                    <span className="ml-3">Rev: <strong className="text-slate-900">{doc.currentRevision}</strong></span>
-                  </div>
-                </div>
 
                 {/* Editable Rich Document Content */}
                 <div
@@ -1485,14 +1535,10 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
                   {/* Graphic Visual Block (If toggled) */}
                   {cfg.showGraphicBanner && (
-                    <div className="h-40 bg-gradient-to-r from-blue-950 via-slate-900 to-sky-950 rounded-2xl flex items-center justify-center text-white p-6 shadow-inner relative overflow-hidden">
+                    <div className="h-32 bg-gradient-to-r from-blue-950 via-slate-900 to-sky-950 rounded-2xl flex items-center justify-center text-white p-6 shadow-inner relative overflow-hidden">
                       <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
-                      <div className="relative text-center space-y-2">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-mono font-bold">
-                          <Layers className="h-3.5 w-3.5 text-sky-400" />
-                          <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
-                        </div>
-                        <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
+                      <div className="relative text-center space-y-1.5">
+                        <h3 className="text-xl font-bold text-white">{doc.projectName}</h3>
                         <p className="text-xs text-sky-200">Official High-Reliability Engineering & Commercial Deliverable</p>
                       </div>
                     </div>
@@ -1504,7 +1550,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                       <div>Project: <strong className="text-slate-900 font-bold">{doc.projectName}</strong></div>
                       <div>Document Ref: <strong className="text-blue-950 font-mono font-bold">{doc.contractorDocumentNumber || doc.documentNumber}</strong></div>
                       <div>Client Document Ref: <strong className="text-slate-900 font-mono font-bold">{cfg.showClientDocNumber && doc.clientDocumentNumber ? doc.clientDocumentNumber : 'N/A'}</strong></div>
-                      <div>Revision: <strong className="text-slate-900 font-bold font-mono">{doc.currentRevision}</strong></div>
+                      <div>Revision: <strong className="text-slate-900 font-bold font-mono">{formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}</strong></div>
                     </div>
 
                     {/* Sign-Off Approval Matrix: Initiated, Checked, Verified, Approved */}
@@ -1539,7 +1585,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                           <tbody className="divide-y divide-slate-300">
                             <tr>
                               <td className="p-3 font-mono font-bold text-center bg-slate-50">
-                                {doc.contractorRevisionNo || doc.currentRevision || '0'}
+                                {formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}
                               </td>
                               <td className="p-3 font-semibold text-emerald-800">
                                 {doc.reasonForIssue || 'For Review & Approval'}
@@ -1624,26 +1670,110 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   {/* Revision History */}
                   {cfg.showRevisionHistory && (
                     <div className="space-y-2">
-                      <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
-                        Revision Change Log
-                      </h4>
-                      <div className="border-2 border-blue-950 text-xs overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
+                          Revision Change Log
+                        </h4>
+                        <div className="flex items-center gap-2 print:hidden">
+                          <button
+                            type="button"
+                            onClick={handleAddRevisionHistory}
+                            className="flex items-center gap-1 text-xs font-semibold text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded border border-blue-200 transition-colors"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Add Change Record</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('sheet3')}
+                            className="text-xs font-semibold text-blue-900 hover:underline"
+                          >
+                            Sheet 3 Tab →
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border-2 border-blue-950 text-xs overflow-hidden rounded-b">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-100 border-b border-slate-300 font-bold">
                               <th className="p-2 border-r border-slate-300 w-24">Revision</th>
                               <th className="p-2 border-r border-slate-300 w-32">Section</th>
-                              <th className="p-2">Change Description</th>
+                              <th className="p-2 border-r border-slate-300 print:border-none">Change Description</th>
+                              <th className="p-2 w-10 text-center print:hidden">Action</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-200">
+                          <tbody className="divide-y divide-slate-200 bg-white">
                             {(doc.revisionHistoryItems || []).map((item, idx) => (
-                              <tr key={idx}>
-                                <td className="p-2 border-r border-slate-300 font-mono font-bold">{item.revision}</td>
-                                <td className="p-2 border-r border-slate-300 font-medium">{item.section}</td>
-                                <td className="p-2 text-slate-700">{item.changeDescription}</td>
+                              <tr key={idx} className="hover:bg-slate-50/80">
+                                <td className="p-2 border-r border-slate-300 align-top">
+                                  <input
+                                    type="text"
+                                    value={item.revision}
+                                    onChange={(e) => handleUpdateRevisionHistory(idx, 'revision', e.target.value)}
+                                    placeholder="0"
+                                    className="w-full px-1.5 py-1 text-xs font-mono font-bold border border-slate-200 rounded bg-white print:border-none print:p-0 print:bg-transparent focus:border-blue-900 focus:outline-none"
+                                  />
+                                </td>
+                                <td className="p-2 border-r border-slate-300 align-top">
+                                  <input
+                                    type="text"
+                                    value={item.section}
+                                    onChange={(e) => handleUpdateRevisionHistory(idx, 'section', e.target.value)}
+                                    placeholder="All, Sec 1..."
+                                    className="w-full px-1.5 py-1 text-xs font-medium border border-slate-200 rounded bg-white print:border-none print:p-0 print:bg-transparent focus:border-blue-900 focus:outline-none"
+                                  />
+                                </td>
+                                <td className="p-2 border-r border-slate-300 print:border-none align-top">
+                                  <div className="space-y-1">
+                                    <div className="print:hidden">
+                                      <select
+                                        value=""
+                                        onChange={(e) => {
+                                          if (e.target.value) {
+                                            handleUpdateRevisionHistory(idx, 'changeDescription', e.target.value);
+                                          }
+                                        }}
+                                        className="w-full px-1.5 py-0.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100 focus:outline-none cursor-pointer"
+                                      >
+                                        <option value="">⚡ Select standard reason / option...</option>
+                                        <option value="Initial Issue for Client Review and Approval">Initial Issue for Client Review and Approval</option>
+                                        <option value="Incorporated Client Comments & Clarifications">Incorporated Client Comments & Clarifications</option>
+                                        <option value="Updated Engineering Design & Technical Calculations">Updated Engineering Design & Technical Calculations</option>
+                                        <option value="Issued for Construction (IFC)">Issued for Construction (IFC)</option>
+                                        <option value="Issued for Tender / Commercial Enquiry">Issued for Tender / Commercial Enquiry</option>
+                                        <option value="Revised per HAZOP & Safety Review Actions">Revised per HAZOP & Safety Review Actions</option>
+                                        <option value="General Document Revision & Scope Updates">General Document Revision & Scope Updates</option>
+                                        <option value="As-Built / Final Approved Transmittal">As-Built / Final Approved Transmittal</option>
+                                      </select>
+                                    </div>
+                                    <textarea
+                                      rows={2}
+                                      value={item.changeDescription}
+                                      onChange={(e) => handleUpdateRevisionHistory(idx, 'changeDescription', e.target.value)}
+                                      placeholder="Enter change description..."
+                                      className="w-full px-2 py-1 text-xs text-slate-800 border border-slate-200 rounded bg-white print:border-none print:p-0 print:bg-transparent print:resize-none focus:border-blue-900 focus:outline-none resize-y min-h-[38px]"
+                                    />
+                                  </div>
+                                </td>
+                                <td className="p-2 text-center align-top print:hidden">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveRevisionHistory(idx)}
+                                    className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                                    title="Delete Change Record"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </td>
                               </tr>
                             ))}
+                            {(!doc.revisionHistoryItems || doc.revisionHistoryItems.length === 0) && (
+                              <tr>
+                                <td colSpan={4} className="p-3 text-center text-slate-400 italic">
+                                  No revision records yet. Click "Add Change Record" above to add your change logs.
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -1653,9 +1783,18 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   {/* HOLD Points */}
                   {cfg.showHoldPoints && (
                     <div className="space-y-2 pt-4">
-                      <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
-                        Engineering HOLD Point Register
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
+                          Engineering HOLD Point Register
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('sheet3')}
+                          className="print:hidden text-xs font-semibold text-blue-900 hover:underline"
+                        >
+                          Edit HOLD Points →
+                        </button>
+                      </div>
                       <div className="border-2 border-blue-950 text-xs overflow-hidden">
                         <table className="w-full text-left border-collapse">
                           <thead>
@@ -1695,19 +1834,9 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 </div>
               )}
 
-              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With Page 2 letterhead) */}
+              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With official letterhead) */}
               <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 font-sans text-slate-800 space-y-6 print:shadow-none print:border-none min-h-[900px]">
                 {renderStandardLetterhead('Document Body & Technical Content')}
-
-                <div className="border-b border-slate-200 pb-2 flex items-center justify-between text-xs text-slate-500 font-mono">
-                  <div>
-                    <span className="font-bold text-slate-800 block">{doc.title.toUpperCase()}</span>
-                    <span>Doc Ref: <strong className="text-slate-900">{doc.contractorDocumentNumber || doc.documentNumber}</strong></span>
-                  </div>
-                  <div className="text-right">
-                    <span>Rev: <strong className="text-slate-900">{doc.currentRevision}</strong></span>
-                  </div>
-                </div>
 
                 {/* Rendered HTML Content */}
                 <div
@@ -1850,14 +1979,10 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
               {/* Graphic Visual Block (If toggled) */}
               {cfg.showGraphicBanner && (
-                <div className="h-40 bg-gradient-to-r from-blue-950 via-slate-900 to-sky-950 rounded-2xl flex items-center justify-center text-white p-6 shadow-inner relative overflow-hidden">
+                <div className="h-32 bg-gradient-to-r from-blue-950 via-slate-900 to-sky-950 rounded-2xl flex items-center justify-center text-white p-6 shadow-inner relative overflow-hidden">
                   <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
-                  <div className="relative text-center space-y-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-mono font-bold">
-                      <Layers className="h-3.5 w-3.5 text-sky-400" />
-                      <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
+                  <div className="relative text-center space-y-1.5">
+                    <h3 className="text-xl font-bold text-white">{doc.projectName}</h3>
                     <p className="text-xs text-sky-200">High Reliability Engineering Deliverable</p>
                   </div>
                 </div>
@@ -1869,7 +1994,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   <div>Project: <strong className="text-slate-900 font-bold">{doc.projectName}</strong></div>
                   <div>Document Ref: <strong className="text-blue-950 font-mono font-bold">{doc.contractorDocumentNumber || doc.documentNumber}</strong></div>
                   <div>Client Document Ref: <strong className="text-slate-900 font-mono font-bold">{cfg.showClientDocNumber && doc.clientDocumentNumber ? doc.clientDocumentNumber : 'N/A'}</strong></div>
-                  <div>Revision: <strong className="text-slate-900 font-bold font-mono">{doc.currentRevision}</strong></div>
+                  <div>Revision: <strong className="text-slate-900 font-bold font-mono">{formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}</strong></div>
                 </div>
 
                 <div className="space-y-2">
@@ -1903,7 +2028,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                       <tbody className="divide-y divide-slate-300">
                         <tr>
                           <td className="p-3 font-mono font-bold text-center bg-slate-50">
-                            {doc.contractorRevisionNo || doc.currentRevision || '0'}
+                            {formatRevisionLabel(doc.contractorRevisionNo || doc.currentRevision)}
                           </td>
                           <td className="p-3 font-semibold text-emerald-800">
                             {doc.reasonForIssue || 'For Review & Approval'}
@@ -1990,40 +2115,93 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   <button
                     type="button"
                     onClick={handleAddRevisionHistory}
-                    className="flex items-center gap-1 text-xs font-semibold text-blue-900 hover:text-blue-800"
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-900 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded border border-blue-200 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Add Change Record</span>
                   </button>
                 </div>
 
-                <div className="border-2 border-blue-950 text-xs overflow-hidden">
+                <div className="border-2 border-blue-950 text-xs overflow-hidden rounded-b">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-300 font-bold">
                         <th className="p-2 border-r border-slate-300 w-24">Revision</th>
-                        <th className="p-2 border-r border-slate-300 w-32">Section</th>
-                        <th className="p-2">Change Description</th>
+                        <th className="p-2 border-r border-slate-300 w-36">Section</th>
+                        <th className="p-2 border-r border-slate-300">Change Description</th>
                         <th className="p-2 w-12 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-200 bg-white">
                       {(doc.revisionHistoryItems || []).map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="p-2 border-r border-slate-300 font-mono font-bold">{item.revision}</td>
-                          <td className="p-2 border-r border-slate-300 font-medium">{item.section}</td>
-                          <td className="p-2 text-slate-700">{item.changeDescription}</td>
-                          <td className="p-2 text-center">
+                        <tr key={idx} className="hover:bg-slate-50/80">
+                          <td className="p-2 border-r border-slate-300">
+                            <input
+                              type="text"
+                              value={item.revision}
+                              onChange={(e) => handleUpdateRevisionHistory(idx, 'revision', e.target.value)}
+                              placeholder="0"
+                              className="w-full px-2 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white focus:border-blue-900 focus:ring-1 focus:ring-blue-900 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-2 border-r border-slate-300">
+                            <input
+                              type="text"
+                              value={item.section}
+                              onChange={(e) => handleUpdateRevisionHistory(idx, 'section', e.target.value)}
+                              placeholder="All, Section 1..."
+                              className="w-full px-2 py-1.5 text-xs font-medium border border-slate-300 rounded bg-white focus:border-blue-900 focus:ring-1 focus:ring-blue-900 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-2 border-r border-slate-300">
+                            <div className="space-y-1">
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleUpdateRevisionHistory(idx, 'changeDescription', e.target.value);
+                                  }
+                                }}
+                                className="w-full px-1.5 py-0.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100 focus:outline-none cursor-pointer"
+                              >
+                                <option value="">⚡ Select standard reason / option...</option>
+                                <option value="Initial Issue for Client Review and Approval">Initial Issue for Client Review and Approval</option>
+                                <option value="Incorporated Client Comments & Clarifications">Incorporated Client Comments & Clarifications</option>
+                                <option value="Updated Engineering Design & Technical Calculations">Updated Engineering Design & Technical Calculations</option>
+                                <option value="Issued for Construction (IFC)">Issued for Construction (IFC)</option>
+                                <option value="Issued for Tender / Commercial Enquiry">Issued for Tender / Commercial Enquiry</option>
+                                <option value="Revised per HAZOP & Safety Review Actions">Revised per HAZOP & Safety Review Actions</option>
+                                <option value="General Document Revision & Scope Updates">General Document Revision & Scope Updates</option>
+                                <option value="As-Built / Final Approved Transmittal">As-Built / Final Approved Transmittal</option>
+                              </select>
+                              <textarea
+                                rows={2}
+                                value={item.changeDescription}
+                                onChange={(e) => handleUpdateRevisionHistory(idx, 'changeDescription', e.target.value)}
+                                placeholder="Enter change description..."
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:border-blue-900 focus:ring-1 focus:ring-blue-900 focus:outline-none resize-y min-h-[42px]"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-2 text-center align-middle">
                             <button
                               type="button"
                               onClick={() => handleRemoveRevisionHistory(idx)}
-                              className="text-slate-400 hover:text-rose-600"
+                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                              title="Delete Change Record"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
                       ))}
+                      {(!doc.revisionHistoryItems || doc.revisionHistoryItems.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="p-4 text-center text-slate-400 italic">
+                            No revision records yet. Click "Add Change Record" to document your revisions.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2038,54 +2216,83 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   <button
                     type="button"
                     onClick={handleAddHoldPoint}
-                    className="flex items-center gap-1 text-xs font-semibold text-blue-900 hover:text-blue-800"
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-900 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded border border-blue-200 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Add HOLD Point</span>
                   </button>
                 </div>
 
-                <div className="border-2 border-blue-950 text-xs overflow-hidden">
+                <div className="border-2 border-blue-950 text-xs overflow-hidden rounded-b">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-300 font-bold">
                         <th className="p-2 border-r border-slate-300 w-16 text-center">Nr.</th>
                         <th className="p-2 border-r border-slate-300">Description / Ref of HOLD Point</th>
                         <th className="p-2 border-r border-slate-300 w-44">Responsible Party</th>
-                        <th className="p-2 w-28">Status</th>
+                        <th className="p-2 border-r border-slate-300 w-28">Status</th>
                         <th className="p-2 w-12 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-200 bg-white">
                       {(doc.holdPoints || []).map((hp, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="p-2 border-r border-slate-300 font-mono font-bold text-center">{hp.nr}</td>
-                          <td className="p-2 border-r border-slate-300 text-slate-800 font-medium">{hp.description}</td>
-                          <td className="p-2 border-r border-slate-300 text-slate-600">{hp.responsibleParty}</td>
-                          <td className="p-2">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                hp.status === 'Closed'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : hp.status === 'Pending'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {hp.status}
-                            </span>
+                        <tr key={idx} className="hover:bg-slate-50/80">
+                          <td className="p-2 border-r border-slate-300 text-center">
+                            <input
+                              type="number"
+                              value={hp.nr}
+                              onChange={(e) => handleUpdateHoldPoint(idx, 'nr', e.target.value)}
+                              className="w-12 text-center px-1 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white focus:border-blue-900 focus:outline-none"
+                            />
                           </td>
-                          <td className="p-2 text-center">
+                          <td className="p-2 border-r border-slate-300">
+                            <textarea
+                              rows={2}
+                              value={hp.description}
+                              onChange={(e) => handleUpdateHoldPoint(idx, 'description', e.target.value)}
+                              placeholder="Description / Ref of HOLD Point..."
+                              className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:border-blue-900 focus:outline-none resize-y min-h-[42px]"
+                            />
+                          </td>
+                          <td className="p-2 border-r border-slate-300">
+                            <input
+                              type="text"
+                              value={hp.responsibleParty}
+                              onChange={(e) => handleUpdateHoldPoint(idx, 'responsibleParty', e.target.value)}
+                              placeholder="e.g. Client Representative"
+                              className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:border-blue-900 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-2 border-r border-slate-300">
+                            <select
+                              value={hp.status}
+                              onChange={(e) => handleUpdateHoldPoint(idx, 'status', e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs font-bold border border-slate-300 rounded bg-white focus:border-blue-900 focus:outline-none"
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Open">Open</option>
+                              <option value="Closed">Closed</option>
+                            </select>
+                          </td>
+                          <td className="p-2 text-center align-middle">
                             <button
                               type="button"
                               onClick={() => handleRemoveHoldPoint(idx)}
-                              className="text-slate-400 hover:text-rose-600"
+                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                              title="Delete HOLD Point"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
                       ))}
+                      {(!doc.holdPoints || doc.holdPoints.length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-slate-400 italic">
+                            No HOLD points registered. Click "Add HOLD Point" above to create one.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

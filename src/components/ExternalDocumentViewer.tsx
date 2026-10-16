@@ -33,6 +33,7 @@ import {
   ExternalAccessSession,
 } from '../types';
 import { evaluateClientAccessStatus, getClientTimeInZone } from '../utils/accessSchedule';
+import { formatRevisionLabel } from '../utils/documentDossierExporter';
 import { SecureProposalContent } from './SecureProposalContent';
 
 interface ExternalDocumentViewerProps {
@@ -957,13 +958,13 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                   >
                     {document.revisions.map((r) => (
                       <option key={r.id} value={r.revision}>
-                        {r.revision} ({r.issueDate})
+                        {formatRevisionLabel(r.revision)} ({r.issueDate})
                       </option>
                     ))}
                   </select>
                 ) : (
                   <span className="font-mono font-semibold text-slate-200 bg-slate-800 px-2 py-0.5 rounded text-xs">
-                    {selectedRevision}
+                    {formatRevisionLabel(selectedRevision)}
                   </span>
                 )}
               </div>

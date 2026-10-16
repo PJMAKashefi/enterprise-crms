@@ -2,6 +2,57 @@ import { jsPDF } from 'jspdf';
 import { TechnicalDocument, FrontPageConfig, User } from '../types';
 
 /**
+ * Strip redundant 'Rev' prefixes so 'Rev 0' or '0' cleanly formats as '0' in front of 'Rev:'.
+ * Result: 'Rev: 0', NEVER 'Rev: Rev 0'.
+ */
+export function formatRevisionLabel(rev?: string | null): string {
+  if (rev === undefined || rev === null) return '0';
+  const str = String(rev).trim();
+  if (!str) return '0';
+  return str.replace(/^(?:rev(?:ision)?\.?\s*:?\s*)+/i, '').trim() || '0';
+}
+
+/**
+ * Professional formatting criteria for converting Word HTML into a structured, decent corporate document.
+ */
+export function formatImportedWordHtml(rawHtml: string): string {
+  if (!rawHtml) return '';
+
+  let html = rawHtml;
+
+  // 1. Remove Word junk styles, mso attributes, and comment blocks
+  html = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s*mso-[^:]+:[^;"]+;?/gi, '')
+    .replace(/\s*style="[^"]*mso-[^"]*"/gi, '')
+    .replace(/<span\s+style="[^"]*font-family:\s*Wingdings[^"]*"[^>]*>.*?<\/span>/gi, '•')
+    .replace(/<o:p>[\s\S]*?<\/o:p>/gi, '')
+    .replace(/<\/?[ou]:\w+[^>]*>/gi, '');
+
+  // 2. Clean empty paragraph clutter
+  html = html
+    .replace(/<p[^>]*>(\s*(&nbsp;|<br\s*\/?>)*\s*)+<\/p>/gi, '')
+    .replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>');
+
+  // 3. Ensure headings have clean corporate typography classes and styling
+  html = html
+    .replace(/<h1([^>]*)>/gi, '<h1 class="doc-h1"$1 style="font-size: 18pt; font-weight: 800; color: #0B1E36; border-bottom: 2px solid #0B1E36; padding-bottom: 6px; margin-top: 24px; margin-bottom: 12px; page-break-after: avoid; break-after: avoid;">')
+    .replace(/<h2([^>]*)>/gi, '<h2 class="doc-h2"$1 style="font-size: 14pt; font-weight: 700; color: #1E40AF; margin-top: 20px; margin-bottom: 10px; page-break-after: avoid; break-after: avoid;">')
+    .replace(/<h3([^>]*)>/gi, '<h3 class="doc-h3"$1 style="font-size: 12pt; font-weight: 700; color: #0F172A; margin-top: 16px; margin-bottom: 8px; page-break-after: avoid; break-after: avoid;">')
+    .replace(/<h4([^>]*)>/gi, '<h4 class="doc-h4"$1 style="font-size: 10.5pt; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 12px; margin-bottom: 6px; page-break-after: avoid; break-after: avoid;">');
+
+  // 4. Enhance all tables with decent, structured corporate styling
+  html = html.replace(/<table([^>]*)>/gi, '<table class="doc-table"$1 style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 9.5pt; border: 1.5px solid #0B1E36;">');
+  html = html.replace(/<th([^>]*)>/gi, '<th class="doc-th"$1 style="background-color: #0B1E36; color: #FFFFFF; font-weight: bold; padding: 8px 10px; text-align: left; border: 1px solid #0B1E36;">');
+  html = html.replace(/<td([^>]*)>/gi, '<td class="doc-td"$1 style="padding: 7px 10px; border: 1px solid #CBD5E1; color: #1E293B; vertical-align: top;">');
+
+  // 5. Structure blockquotes/notes
+  html = html.replace(/<blockquote([^>]*)>/gi, '<blockquote class="doc-blockquote"$1 style="background-color: #F8FAFC; border-left: 4px solid #0B1E36; padding: 10px 16px; margin: 14px 0; border-radius: 0 6px 6px 0;">');
+
+  return html;
+}
+
+/**
  * High-fidelity HTML builder for the entire 3-Page Front Dossier + Body Content.
  * Used for both Microsoft Word export and isolated browser print-to-PDF.
  */
@@ -28,27 +79,46 @@ export function buildDossierHtml(
   const tdHeaderStyle = 'background-color: #F1F5F9; font-weight: bold; color: #0F172A; width: 22%; border: 1px solid #94A3B8; font-size: 9.5pt; padding: 7px 10px;';
   const tdValueStyle = 'color: #0F172A; border: 1px solid #94A3B8; font-size: 9.5pt; padding: 7px 10px;';
 
-  // Helper: Standard Page Letterhead
-  const renderLetterheadHtml = (pageSubLabel: string) => `
-    <table style="width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #0B1E36; padding-bottom: 12px; margin-bottom: 24px;">
-      <tr>
-        <td style="vertical-align: middle; width: 50%;">
-          <div style="display: inline-block; vertical-align: middle;">
-            <span style="font-size: 22pt; font-weight: 900; color: #0B1E36; letter-spacing: -0.5px; font-family: Arial, sans-serif;">PJMAK</span>
-            <span style="display: block; font-size: 8pt; color: #64748B; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Engineering & Technical Deliverables</span>
-          </div>
-        </td>
-        <td style="vertical-align: middle; text-align: right; width: 50%;">
-          ${clientCompany ? `
-            <div style="font-size: 15pt; font-weight: 800; color: #1E3A8A; font-family: Arial, sans-serif;">${clientCompany}</div>
-            <div style="font-size: 8.5pt; color: #64748B; font-weight: 600; text-transform: uppercase;">${clientRole}</div>
-          ` : `
-            <div style="font-size: 13pt; font-weight: 700; color: #0F172A;">${doc.projectName}</div>
-            <div style="font-size: 8.5pt; color: #64748B; font-family: monospace;">${doc.projectCode} • ${pageSubLabel}</div>
-          `}
-        </td>
-      </tr>
-    </table>
+  // Helper: Standard Page Letterhead (matches exact attached letterhead design across ALL pages)
+  const renderLetterheadHtml = (pageSubLabel?: string) => `
+    <div class="letterhead-container" style="width: 100%; margin-bottom: 24px; padding-bottom: 6px;">
+      <!-- Tier 1: Brand & Client -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
+        <tr>
+          <td style="vertical-align: middle; width: 45%; padding: 0;">
+            <span style="font-size: 26pt; font-weight: 900; color: #0B1E36; letter-spacing: -0.5px; font-family: Arial, Helvetica, sans-serif;">PJMAK</span>
+          </td>
+          <td style="vertical-align: middle; text-align: right; width: 55%; padding: 0;">
+            <div style="font-size: 20pt; font-weight: 800; color: #1E40AF; font-family: Arial, Helvetica, sans-serif; line-height: 1.15;">
+              ${clientCompany || 'Case Services'}
+            </div>
+            <div style="font-size: 8pt; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">
+              ${clientRole || 'CLIENT / OPERATOR'}
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Primary Dark Blue Divider Bar -->
+      <div style="height: 2.5px; background-color: #0B1E36; width: 100%; margin-bottom: 6px;"></div>
+
+      <!-- Tier 2: Sub-bar with Document Title & Reference Metadata -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
+        <tr>
+          <td style="vertical-align: middle; font-size: 10pt; font-weight: 800; color: #0B1E36; text-transform: uppercase; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0.2px;">
+            ${doc.title}
+          </td>
+          <td style="vertical-align: middle; text-align: right; font-size: 9pt; color: #475569; font-family: Arial, Helvetica, sans-serif; white-space: nowrap;">
+            <span style="color: #64748B;">Doc Ref:</span> <strong style="color: #0F172A; font-family: monospace; font-size: 9.5pt;">${contractorDocNum}</strong>
+            <span style="color: #CBD5E1; margin: 0 5px;">|</span>
+            <span style="color: #64748B;">Rev:</span> <strong style="color: #0F172A; font-family: monospace; font-size: 9.5pt;">${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}</strong>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Subtle Bottom Divider Line -->
+      <div style="height: 1px; background-color: #E2E8F0; width: 100%;"></div>
+    </div>
   `;
 
   // --- PAGE 1: CONTROL SHEET ---
@@ -165,9 +235,6 @@ export function buildDossierHtml(
 
         ${cfg.showGraphicBanner ? `
           <div style="background-color: #0B1E36; color: #FFFFFF; padding: 22px; border-radius: 12px; margin: 20px 0 28px 0; text-align: center; border: 1px solid #1E293B;">
-            <div style="font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; color: #38BDF8; margin-bottom: 6px;">
-              Project: ${doc.projectCode} • Discipline: ${doc.discipline}
-            </div>
             <div style="font-size: 16pt; font-weight: 800; color: #FFFFFF; margin-bottom: 4px;">
               ${doc.projectName}
             </div>
@@ -184,7 +251,7 @@ export function buildDossierHtml(
           </tr>
           <tr>
             <td style="${tdStyle} border: none; width: 50%;">Client Doc Ref: <strong style="color: #0F172A; font-family: monospace;">${cfg.showClientDocNumber && doc.clientDocumentNumber ? doc.clientDocumentNumber : 'N/A'}</strong></td>
-            <td style="${tdStyle} border: none; width: 50%;">Revision: <strong style="color: #0F172A; font-family: monospace;">${currentRev}</strong></td>
+            <td style="${tdStyle} border: none; width: 50%;">Revision: <strong style="color: #0F172A; font-family: monospace;">${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}</strong></td>
           </tr>
         </table>
 
@@ -207,7 +274,7 @@ export function buildDossierHtml(
             <tbody>
               <tr>
                 <td style="${tdStyle} font-family: monospace; font-weight: bold; text-align: center; background-color: #F8FAFC;">
-                  ${doc.contractorRevisionNo || currentRev}
+                  ${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}
                 </td>
                 <td style="${tdStyle} color: #047857; font-weight: bold;">
                   ${issueReason}
@@ -267,14 +334,14 @@ export function buildDossierHtml(
                 ${(doc.revisionHistoryItems && doc.revisionHistoryItems.length > 0)
                   ? doc.revisionHistoryItems.map((item) => `
                     <tr>
-                      <td style="${tdStyle} font-family: monospace; font-weight: bold;">${item.revision}</td>
-                      <td style="${tdStyle} font-weight: 600;">${item.section}</td>
+                      <td style="${tdStyle} font-family: monospace; font-weight: bold;">${formatRevisionLabel(item.revision)}</td>
+                      <td style="${tdStyle} font-weight: 600;">${item.section || 'All'}</td>
                       <td style="${tdStyle}">${item.changeDescription}</td>
                     </tr>
                   `).join('')
                   : `
                     <tr>
-                      <td style="${tdStyle} font-family: monospace; font-weight: bold;">${currentRev}</td>
+                      <td style="${tdStyle} font-family: monospace; font-weight: bold;">${formatRevisionLabel(currentRev)}</td>
                       <td style="${tdStyle} font-weight: 600;">All</td>
                       <td style="${tdStyle}">Initial issue for review and technical evaluation</td>
                     </tr>
@@ -337,32 +404,21 @@ export function buildDossierHtml(
   }
 
   // --- PAGE 4+: PREPARED DOCUMENT CONTENT ---
-  const bodyContent = doc.bodyHtml || `
+  const bodyContent = formatImportedWordHtml(doc.bodyHtml || `
     <p>This document presents the principal technical specifications, methodology, and engineering execution requirements in accordance with project baseline agreements.</p>
     <h4>1.1 Purpose of Document</h4>
     <p>The purpose of this deliverable is to establish formal engineering parameters, operational procedures, and compliance standards for review and approval.</p>
-  `;
+  `);
 
   const pageContentHtml = `
-    <div class="dossier-page page-content" style="padding: 10px 0;">
+    <div class="dossier-page page-content" style="${isWord ? 'page-break-before: always; mso-break-type: page-break;' : 'page-break-before: always; break-before: page; min-height: 980px;'} padding: 10px 0;">
       ${renderLetterheadHtml('Document Body & Technical Content')}
 
-      <div style="border-bottom: 1.5px solid #E2E8F0; padding-bottom: 8px; margin-bottom: 20px;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="font-size: 11pt; font-weight: bold; color: #0F172A;">${doc.title.toUpperCase()}</td>
-            <td style="text-align: right; font-size: 9pt; color: #64748B; font-family: monospace;">
-              Doc Ref: <strong>${contractorDocNum}</strong> | Rev: <strong>${currentRev}</strong>
-            </td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="document-body" style="font-size: 11pt; line-height: 1.65; color: #1E293B;">
+      <div class="document-body" style="font-size: 10.5pt; line-height: 1.65; color: #1E293B;">
         ${bodyContent}
       </div>
 
-      <div style="margin-top: 40px; padding-top: 14px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace;">
+      <div style="margin-top: 40px; padding-top: 14px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace; page-break-inside: avoid;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td>PJMAK Engineering • ${doc.projectName}</td>
@@ -487,26 +543,31 @@ export function printTechnicalDocumentDossier(
           html, body {
             background: #ffffff;
             color: #0f172a;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             font-size: 10.5pt;
             margin: 0;
             padding: 0;
             width: 100%;
           }
+          .letterhead-container {
+            width: 100%;
+            margin-bottom: 24px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
           h1, h2, h3, h4, h5 {
-            color: #0f172a;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             page-break-after: avoid;
             break-after: avoid;
           }
-          h1 { font-size: 22pt; font-weight: 900; margin: 16px 0 8px 0; }
-          h2 { font-size: 16pt; font-weight: 800; margin: 14px 0 6px 0; }
-          h3 { font-size: 13pt; font-weight: 700; margin: 12px 0 4px 0; }
-          h4 { font-size: 11pt; font-weight: 700; margin: 10px 0 4px 0; }
-          p { margin: 0 0 10px 0; line-height: 1.6; }
-          ul, ol { margin: 0 0 12px 0; padding-left: 24px; }
-          li { margin-bottom: 4px; line-height: 1.5; }
-          .page-1, .page-2, .page-3 {
+          .document-body h1, h1 { font-size: 18pt; font-weight: 800; color: #0B1E36; margin: 22px 0 10px 0; border-bottom: 2px solid #0B1E36; padding-bottom: 4px; }
+          .document-body h2, h2 { font-size: 14pt; font-weight: 700; color: #1E40AF; margin: 18px 0 8px 0; }
+          .document-body h3, h3 { font-size: 12pt; font-weight: 700; color: #0F172A; margin: 14px 0 6px 0; }
+          .document-body h4, h4 { font-size: 10.5pt; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 4px 0; }
+          p { margin: 0 0 12px 0; line-height: 1.65; text-align: justify; }
+          ul, ol { margin: 0 0 14px 0; padding-left: 24px; }
+          li { margin-bottom: 5px; line-height: 1.55; }
+          .page-1, .page-2, .page-3, .page-content {
             page-break-after: always !important;
             break-after: page !important;
           }
@@ -515,6 +576,8 @@ export function printTechnicalDocumentDossier(
             break-after: page !important;
           }
           table {
+            width: 100%;
+            border-collapse: collapse;
             page-break-inside: auto;
           }
           tr {
@@ -523,6 +586,28 @@ export function printTechnicalDocumentDossier(
           }
           thead {
             display: table-header-group;
+          }
+          .document-body table th {
+            background-color: #0B1E36 !important;
+            color: #ffffff !important;
+            font-weight: bold;
+            padding: 8px 10px;
+            border: 1px solid #0B1E36;
+          }
+          .document-body table td {
+            padding: 7px 10px;
+            border: 1px solid #CBD5E1;
+            vertical-align: top;
+          }
+          .document-body table tr:nth-child(even) td {
+            background-color: #F8FAFC;
+          }
+          blockquote {
+            background-color: #F8FAFC;
+            border-left: 4px solid #0B1E36;
+            padding: 10px 16px;
+            margin: 14px 0;
+            border-radius: 0 6px 6px 0;
           }
         </style>
       </head>
@@ -596,57 +681,58 @@ export function generateTechnicalDocumentPdf(
   const issueDate = doc.revisionDate || new Date().toISOString().slice(0, 10);
   const authorName = doc.createdByUserName || currentUser?.name || 'Lead Engineer';
 
-  // Helper for letterhead on each page
-  const drawLetterhead = (pageLabel: string) => {
-    // PJMAK Bold Title
+  // Helper for letterhead on each page (matches exact 2-tier design with dark blue PJMAK, blue client, and sub-bar)
+  const drawLetterhead = (_pageLabel?: string) => {
+    // PJMAK Bold Title (Dark blue rather than black)
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(18);
-    pdf.setTextColor(11, 30, 54); // #0B1E36
-    pdf.text('PJMAK', margin, margin + 4);
+    pdf.setFontSize(20);
+    pdf.setTextColor(11, 30, 54); // #0B1E36 (Dark Blue)
+    pdf.text('PJMAK', margin, margin + 4.5);
 
-    // Amber Accent Crown
-    pdf.setFillColor(245, 158, 11);
-    pdf.triangle(margin + 33, margin + 2, margin + 35, margin - 1, margin + 37, margin + 2, 'F');
+    // Client company in blue on right
+    const clientName = doc.clientCompany || 'Case Services';
+    const clientRole = doc.clientRoleLabel || cfg.clientRoleLabel || 'CLIENT / OPERATOR';
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(100, 116, 139);
-    pdf.text('ENGINEERING & TECHNICAL DELIVERABLES', margin, margin + 9);
+    pdf.setTextColor(30, 64, 175); // #1E40AF (Blue)
+    pdf.text(clientName, pageWidth - margin, margin + 4, { align: 'right' });
 
-    // Client or Project info on right
-    if (doc.clientCompany) {
-      pdf.setFontSize(13);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(30, 58, 138);
-      pdf.text(doc.clientCompany, pageWidth - margin, margin + 4, { align: 'right' });
+    pdf.setFontSize(7.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(100, 116, 139); // Slate-500
+    pdf.text(clientRole.toUpperCase(), pageWidth - margin, margin + 8.5, { align: 'right' });
 
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(doc.clientRoleLabel || cfg.clientRoleLabel || 'Client / Operator', pageWidth - margin, margin + 9, { align: 'right' });
-    } else {
-      pdf.setFontSize(11);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(15, 23, 42);
-      pdf.text(doc.projectName, pageWidth - margin, margin + 4, { align: 'right' });
-
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(`${doc.projectCode} • ${pageLabel}`, pageWidth - margin, margin + 9, { align: 'right' });
-    }
-
-    // Border divider
+    // Primary Dark Blue Divider Bar (thickness 0.65mm)
     pdf.setDrawColor(11, 30, 54);
-    pdf.setLineWidth(0.8);
-    pdf.line(margin, margin + 13, pageWidth - margin, margin + 13);
+    pdf.setLineWidth(0.65);
+    pdf.line(margin, margin + 11, pageWidth - margin, margin + 11);
+
+    // Sub-bar: Document Title on left, Doc Ref & Rev on right
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8.2);
+    pdf.setTextColor(11, 30, 54);
+    const titleText = (doc.title || '').toUpperCase();
+    const titleShort = pdf.splitTextToSize(titleText, contentWidth - 65)[0] || '';
+    pdf.text(titleShort, margin, margin + 15.5);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(71, 85, 105);
+    const refRevText = `Doc Ref: ${contractorDocNum} | Rev: ${formatRevisionLabel(doc.contractorRevisionNo || currentRev)}`;
+    pdf.text(refRevText, pageWidth - margin, margin + 15.5, { align: 'right' });
+
+    // Subtle bottom divider line
+    pdf.setDrawColor(226, 232, 240);
+    pdf.setLineWidth(0.2);
+    pdf.line(margin, margin + 18, pageWidth - margin, margin + 18);
   };
 
   // --- PAGE 1: CONTROL SHEET ---
   let pageCount = 1;
   drawLetterhead('Page 1 of Dossier: Document Control');
 
-  let curY = margin + 20;
+  let curY = margin + 26;
 
   // Header Banner
   pdf.setFillColor(11, 30, 54);
@@ -684,7 +770,7 @@ export function generateTechnicalDocumentPdf(
     ],
     [
       { label: 'Contractor Doc Number:', val: contractorDocNum },
-      { label: 'Contractor Revision:', val: doc.contractorRevisionNo || currentRev },
+      { label: 'Contractor Revision:', val: formatRevisionLabel(doc.contractorRevisionNo || currentRev) },
     ],
     [
       { label: 'Originator / Authority:', val: doc.originator || 'PJMAK' },
@@ -748,7 +834,7 @@ export function generateTechnicalDocumentPdf(
   const revList = doc.revisions && doc.revisions.length > 0 ? doc.revisions : [{ revision: currentRev, reasonForIssue: doc.reasonForIssue || 'For Review', issueDate }];
   revList.forEach((r) => {
     pdf.rect(margin, curY, contentWidth, 7, 'D');
-    pdf.text(r.revision, margin + 3, curY + 5);
+    pdf.text(formatRevisionLabel(r.revision), margin + 3, curY + 5);
     pdf.text(pdf.splitTextToSize(r.reasonForIssue || '', 60)[0] || '', margin + 20, curY + 5);
     pdf.text(r.issueDate || issueDate, margin + 85, curY + 5);
     pdf.text(authorName, margin + 115, curY + 5);
@@ -781,20 +867,18 @@ export function generateTechnicalDocumentPdf(
     curY += wrappedScope.length * 5 + 8;
   }
 
-  // Graphic Dark Banner
+  // Graphic Dark Banner (Project name deliverable banner - PRJ26 Discipline line removed)
   pdf.setFillColor(11, 30, 54);
-  pdf.roundedRect(margin, curY, contentWidth, 24, 3, 3, 'F');
-  pdf.setFontSize(8.5);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(56, 189, 248);
-  pdf.text(`PROJECT: ${doc.projectCode} • DISCIPLINE: ${doc.discipline}`, pageWidth / 2, curY + 7, { align: 'center' });
+  pdf.roundedRect(margin, curY, contentWidth, 20, 3, 3, 'F');
   pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(255, 255, 255);
-  pdf.text(doc.projectName, pageWidth / 2, curY + 14, { align: 'center' });
+  pdf.text(doc.projectName, pageWidth / 2, curY + 9, { align: 'center' });
   pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(148, 163, 184);
-  pdf.text('Official High-Reliability Engineering & Commercial Deliverable', pageWidth / 2, curY + 20, { align: 'center' });
-  curY += 32;
+  pdf.text('Official High-Reliability Engineering & Commercial Deliverable', pageWidth / 2, curY + 15, { align: 'center' });
+  curY += 28;
 
   // Sign-off Matrix Table
   pdf.setFont('helvetica', 'bold');
@@ -819,7 +903,7 @@ export function generateTechnicalDocumentPdf(
   pdf.setFillColor(248, 250, 252);
   pdf.rect(margin, curY, contentWidth, 16, 'FD');
   pdf.setTextColor(15, 23, 42);
-  pdf.text(currentRev, margin + 3, curY + 6);
+  pdf.text(formatRevisionLabel(doc.contractorRevisionNo || currentRev), margin + 3, curY + 6);
   pdf.setTextColor(4, 120, 87);
   pdf.text(pdf.splitTextToSize(doc.reasonForIssue || 'For Review', 25)[0] || '', margin + 18, curY + 6);
   pdf.setTextColor(100, 116, 139);
@@ -850,7 +934,7 @@ export function generateTechnicalDocumentPdf(
   pdf.addPage();
   pageCount++;
   drawLetterhead('Page 3 of Dossier: History & HOLD Register');
-  curY = margin + 20;
+  curY = margin + 26;
 
   // Revision change log
   pdf.setFont('helvetica', 'bold');
@@ -877,9 +961,9 @@ export function generateTechnicalDocumentPdf(
     pdf.rect(margin, curY, contentWidth, 8, 'D');
     pdf.setTextColor(15, 23, 42);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(item.revision, margin + 3, curY + 5.5);
+    pdf.text(formatRevisionLabel(item.revision), margin + 3, curY + 5.5);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(item.section, margin + 25, curY + 5.5);
+    pdf.text(item.section || 'All', margin + 25, curY + 5.5);
     pdf.text(pdf.splitTextToSize(item.changeDescription, contentWidth - 70)[0] || '', margin + 65, curY + 5.5);
     curY += 8;
   });
@@ -931,23 +1015,7 @@ export function generateTechnicalDocumentPdf(
   pdf.addPage();
   pageCount++;
   drawLetterhead('Document Body & Technical Content');
-  curY = margin + 18;
-
-  // Title bar
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(11);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text(doc.title.toUpperCase(), margin, curY);
-
-  pdf.setFontSize(8.5);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(100, 116, 139);
-  pdf.text(`Ref: ${contractorDocNum} | Rev: ${currentRev}`, pageWidth - margin, curY, { align: 'right' });
-
-  curY += 4;
-  pdf.setDrawColor(226, 232, 240);
-  pdf.line(margin, curY, pageWidth - margin, curY);
-  curY += 7;
+  curY = margin + 26;
 
   // Parse HTML into text paragraphs
   const cleanBodyText = (doc.bodyHtml || '')
@@ -981,7 +1049,7 @@ export function generateTechnicalDocumentPdf(
       pdf.addPage();
       pageCount++;
       drawLetterhead('Document Body & Technical Content');
-      curY = margin + 20;
+      curY = margin + 26;
     }
 
     if (trimmed.startsWith('### ')) {
@@ -1001,7 +1069,7 @@ export function generateTechnicalDocumentPdf(
           pdf.addPage();
           pageCount++;
           drawLetterhead('Document Body & Technical Content');
-          curY = margin + 20;
+          curY = margin + 26;
         }
         pdf.text(sLine, margin, curY);
         curY += 5.2;

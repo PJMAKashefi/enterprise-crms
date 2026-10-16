@@ -93,7 +93,7 @@ export function generateCorrespondencePdf(
     // Vector fallback for brand name & crown
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42); // slate-900
+    doc.setTextColor(11, 30, 54); // #0B1E36 (Dark Blue)
     doc.text('PJMAK', margin, cursorY + 9);
     // Amber crown accent
     doc.setFillColor(245, 158, 11);
