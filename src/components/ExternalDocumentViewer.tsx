@@ -826,7 +826,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
 
   const watermarkText = secureSession
     ? `PJMAK CONFIDENTIAL PROPOSAL • ${secureSession.recipientName} (${secureSession.recipientEmail}) • ID: ${secureSession.accessId} • ${currentTimeDisplay} • RESTRICTED ACCESS`
-    : `PJMAK ENGINEERING • CONTROLLED DOCUMENT • ${share?.recipientName || ''} (${share?.recipientCompany || ''}) • ${currentTimeDisplay} • UNAUTHORIZED DUPLICATION PROHIBITED`;
+    : `PJMAK • CONTROLLED DOCUMENT • ${share?.recipientName || ''} (${share?.recipientCompany || ''}) • ${currentTimeDisplay} • UNAUTHORIZED DUPLICATION PROHIBITED`;
 
   return (
     <div
@@ -1115,7 +1115,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                   <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
                     <div>
                       <div className="text-xl font-bold text-slate-950 tracking-wider font-mono">
-                        PJMAK PROCESS & ENERGY ENGINEERING
+                        PJMAK
                       </div>
                       <div className="text-xs text-slate-600">
                         Project: <span className="font-semibold text-slate-900">{document.projectName} ({document.projectCode})</span>
@@ -1151,7 +1151,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                 <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
                   <div>
                     <div className="text-xl font-bold text-slate-950 tracking-wider font-mono">
-                      PJMAK PROCESS & ENERGY ENGINEERING
+                      PJMAK
                     </div>
                     <div className="text-xs text-slate-600">
                       Project: <span className="font-semibold text-slate-900">{document.projectName} ({document.projectCode})</span>
@@ -1500,7 +1500,7 @@ export const ExternalDocumentViewer: React.FC<ExternalDocumentViewerProps> = ({
                             <div className="flex items-center space-x-1 font-semibold text-slate-300">
                               <span>{r.authorName}</span>
                               <span className="text-slate-500">
-                                ({r.authorRole === 'internal' ? 'PJMAK Engineering' : r.authorCompany})
+                                ({r.authorRole === 'internal' ? 'PJMAK' : r.authorCompany})
                               </span>
                             </div>
                             <p className="text-slate-400 whitespace-pre-wrap">{r.text}</p>

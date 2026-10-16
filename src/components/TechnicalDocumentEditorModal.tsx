@@ -369,7 +369,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     if (type === 'warning') {
       calloutHtml = `
         <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-size: 12px; color: #78350f;">
-          <strong style="color: #b45309; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">⚠️ MANDATORY ENGINEERING & SAFETY NOTICE</strong>
+          <strong style="color: #b45309; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">⚠️ MANDATORY COMPLIANCE & GOVERNANCE NOTICE</strong>
           <p style="margin: 0; line-height: 1.6;">Ensure all operations strictly follow the project health and safety plan, client standards, and verified hold point procedures before executing this task.</p>
         </div><p><br></p>
       `;
@@ -620,7 +620,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   {doc.projectName}
                 </span>
                 <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
-                  {doc.projectCode} • {pageLabel || 'Engineering Deliverable'}
+                  {doc.projectCode} • {pageLabel || 'Deliverable'}
                 </span>
               </>
             )}
@@ -1493,7 +1493,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                           <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
                         </div>
                         <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
-                        <p className="text-xs text-sky-200">Official High-Reliability Engineering & Commercial Deliverable</p>
+                        <p className="text-xs text-sky-200">Official Commercial & Technical Deliverable</p>
                       </div>
                     </div>
                   )}
@@ -1654,7 +1654,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   {cfg.showHoldPoints && (
                     <div className="space-y-2 pt-4">
                       <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
-                        Engineering HOLD Point Register
+                        Project HOLD Point Register
                       </h4>
                       <div className="border-2 border-blue-950 text-xs overflow-hidden">
                         <table className="w-full text-left border-collapse">
@@ -1716,8 +1716,8 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 />
 
                 <div className="pt-8 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>PJMAK Engineering • {doc.projectName}</span>
-                  <span>End of Technical Deliverable</span>
+                  <span>PJMAK • {doc.projectName}</span>
+                  <span>End of Deliverable</span>
                 </div>
               </div>
             </div>
@@ -1858,7 +1858,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                       <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
                     </div>
                     <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
-                    <p className="text-xs text-sky-200">High Reliability Engineering Deliverable</p>
+                    <p className="text-xs text-sky-200">Official Deliverable</p>
                   </div>
                 </div>
               )}

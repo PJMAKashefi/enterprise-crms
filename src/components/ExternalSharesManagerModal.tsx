@@ -204,7 +204,7 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
         body: JSON.stringify({
           text: text.trim(),
           authorRole: 'internal',
-          authorCompany: 'PJMAK Engineering & Document Control',
+          authorCompany: 'PJMAK Document Control',
         }),
       });
 
@@ -795,7 +795,7 @@ export const ExternalSharesManagerModal: React.FC<ExternalSharesManagerModalProp
                                 <div key={r.id} className="text-2xs bg-slate-50 p-2 rounded border border-slate-100 space-y-0.5">
                                   <div className="font-semibold text-slate-800 flex justify-between">
                                     <span>
-                                      {r.authorName} ({r.authorRole === 'internal' ? 'PJMAK Engineering' : r.authorCompany})
+                                      {r.authorName} ({r.authorRole === 'internal' ? 'PJMAK' : r.authorCompany})
                                     </span>
                                     <span className="text-slate-400 font-normal">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                   </div>

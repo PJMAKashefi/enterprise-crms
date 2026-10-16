@@ -35,7 +35,6 @@ export function buildDossierHtml(
         <td style="vertical-align: middle; width: 50%;">
           <div style="display: inline-block; vertical-align: middle;">
             <span style="font-size: 22pt; font-weight: 900; color: #0B1E36; letter-spacing: -0.5px; font-family: Arial, sans-serif;">PJMAK</span>
-            <span style="display: block; font-size: 8pt; color: #64748B; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Engineering & Technical Deliverables</span>
           </div>
         </td>
         <td style="vertical-align: middle; text-align: right; width: 50%;">
@@ -288,7 +287,7 @@ export function buildDossierHtml(
         ${cfg.showHoldPoints ? `
           <div style="margin-top: 20px;">
             <div style="background-color: #0B1E36; color: #FFFFFF; padding: 8px 12px; font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">
-              Engineering HOLD Point Register
+              Project HOLD Point Register
             </div>
             <table style="${tableStyle} border: 1px solid #0B1E36; margin-top: 0;">
               <thead>
@@ -365,8 +364,8 @@ export function buildDossierHtml(
       <div style="margin-top: 40px; padding-top: 14px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td>PJMAK Engineering • ${doc.projectName}</td>
-            <td style="text-align: right;">End of Technical Deliverable</td>
+            <td>PJMAK • ${doc.projectName}</td>
+            <td style="text-align: right;">End of Deliverable</td>
           </tr>
         </table>
       </div>
@@ -473,11 +472,17 @@ export function printTechnicalDocumentDossier(
     <html>
       <head>
         <meta charset="utf-8">
-        <title>${doc.contractorDocumentNumber || doc.documentNumber} - ${doc.title}</title>
+        <title></title>
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm 15mm 12mm 15mm;
+            margin: 0 !important; /* Strips browser header (date, title) and footer (localhost:3000 URL) */
+          }
+          @page :left {
+            margin: 0 !important;
+          }
+          @page :right {
+            margin: 0 !important;
           }
           * {
             box-sizing: border-box;
@@ -506,6 +511,10 @@ export function printTechnicalDocumentDossier(
           p { margin: 0 0 10px 0; line-height: 1.6; }
           ul, ol { margin: 0 0 12px 0; padding-left: 24px; }
           li { margin-bottom: 4px; line-height: 1.5; }
+          .dossier-page {
+            padding: 12mm 15mm 12mm 15mm !important;
+            box-sizing: border-box !important;
+          }
           .page-1, .page-2, .page-3 {
             page-break-after: always !important;
             break-after: page !important;
@@ -607,11 +616,6 @@ export function generateTechnicalDocumentPdf(
     // Amber Accent Crown
     pdf.setFillColor(245, 158, 11);
     pdf.triangle(margin + 33, margin + 2, margin + 35, margin - 1, margin + 37, margin + 2, 'F');
-
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(100, 116, 139);
-    pdf.text('ENGINEERING & TECHNICAL DELIVERABLES', margin, margin + 9);
 
     // Client or Project info on right
     if (doc.clientCompany) {
@@ -890,7 +894,7 @@ export function generateTechnicalDocumentPdf(
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(9.5);
   pdf.setTextColor(15, 23, 42);
-  pdf.text('ENGINEERING HOLD POINT REGISTER', margin, curY);
+  pdf.text('PROJECT HOLD POINT REGISTER', margin, curY);
   curY += 3;
 
   pdf.setFillColor(15, 23, 42);
@@ -1017,7 +1021,7 @@ export function generateTechnicalDocumentPdf(
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(148, 163, 184);
     pdf.text(
-      `PJMAK Engineering • ${contractorDocNum} • Page ${i} of ${totalPages}`,
+      `PJMAK • ${contractorDocNum} • Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 8,
       { align: 'center' }
