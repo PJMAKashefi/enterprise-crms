@@ -369,7 +369,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     if (type === 'warning') {
       calloutHtml = `
         <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-size: 12px; color: #78350f;">
-          <strong style="color: #b45309; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">⚠️ MANDATORY COMPLIANCE & GOVERNANCE NOTICE</strong>
+          <strong style="color: #b45309; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">⚠️ MANDATORY ENGINEERING & SAFETY NOTICE</strong>
           <p style="margin: 0; line-height: 1.6;">Ensure all operations strictly follow the project health and safety plan, client standards, and verified hold point procedures before executing this task.</p>
         </div><p><br></p>
       `;
@@ -580,68 +580,50 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
     }));
   };
 
-  // Reusable Page 2-style Letterhead + Document Title & Reference Bar used across ALL pages as requested!
+  // Reusable Page 2-style Letterhead used across ALL pages as requested!
   const renderStandardLetterhead = (pageLabel?: string) => {
     const clientLogo = doc.clientLogoUrl || doc.frontPageConfig?.clientLogoUrl;
-    const currentDocNum = normalizeDocumentNumber(doc.documentNumber || doc.contractorDocumentNumber || 'PRJ26-PJMAK-COM-PRP-0001');
-
     return (
-      <div className="space-y-3 mb-6">
-        <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
-              <PjmakLogo variant="compact" size="md" />
-            </div>
-            <div>
-              <span className="font-black text-xl text-blue-950 tracking-tight block">PJMAK</span>
-            </div>
+      <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl bg-white border border-blue-100 shadow-2xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+            <PjmakLogo variant="compact" size="md" />
           </div>
-
-          <div className="flex items-center gap-3 text-right">
-            {clientLogo && (
-              <div className="h-11 max-w-[140px] flex items-center justify-center p-1 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden shrink-0">
-                <img
-                  src={clientLogo}
-                  alt={doc.clientCompany || 'Client Logo'}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-            )}
-            <div>
-              {doc.clientCompany ? (
-                <>
-                  <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
-                    {doc.clientCompany}
-                  </span>
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                    {doc.clientRoleLabel || doc.frontPageConfig?.clientRoleLabel || 'Client / Operator'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="font-extrabold text-lg text-slate-900 tracking-tight block">
-                    {doc.projectName}
-                  </span>
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
-                    {doc.projectCode}{pageLabel ? ` • ${pageLabel}` : ''}
-                  </span>
-                </>
-              )}
-            </div>
+          <div>
+            <span className="font-black text-xl text-blue-950 tracking-tight block">PJMAK</span>
           </div>
         </div>
 
-        {/* Document Title & Reference Bar (Identical across ALL Pages as requested) */}
-        <div className="border-b border-slate-200 pb-2 flex items-center justify-between text-xs text-slate-500 font-mono">
-          <div className="min-w-0 pr-4">
-            <span className="font-bold text-slate-900 block truncate">{doc.title.toUpperCase()}</span>
-            <span>Doc Ref: <strong className="text-slate-900">{currentDocNum}</strong></span>
-          </div>
-          <div className="text-right shrink-0">
-            {cfg.showClientDocNumber && doc.clientDocumentNumber && (
-              <span className="mr-3">Client Ref: <strong className="text-slate-900">{doc.clientDocumentNumber}</strong></span>
+        <div className="flex items-center gap-3 text-right">
+          {clientLogo && (
+            <div className="h-11 max-w-[140px] flex items-center justify-center p-1 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden shrink-0">
+              <img
+                src={clientLogo}
+                alt={doc.clientCompany || 'Client Logo'}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          )}
+          <div>
+            {doc.clientCompany ? (
+              <>
+                <span className="font-extrabold text-xl text-blue-900 tracking-tight block">
+                  {doc.clientCompany}
+                </span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                  {doc.clientRoleLabel || doc.frontPageConfig?.clientRoleLabel || 'Client / Operator'}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-extrabold text-lg text-slate-900 tracking-tight block">
+                  {doc.projectName}
+                </span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold font-mono">
+                  {doc.projectCode} • {pageLabel || 'Engineering Deliverable'}
+                </span>
+              </>
             )}
-            <span>Rev: <strong className="text-slate-900">{doc.currentRevision || 'Rev 0'}</strong></span>
           </div>
         </div>
       </div>
@@ -1251,10 +1233,22 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
 
               {/* Physical A4 Paper Canvas */}
               <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 min-h-[780px] font-sans text-slate-800 space-y-6 flex-1">
-                {/* Standard Page 2 Letterhead + Document Title & Reference across all pages */}
+                {/* Standard Page 2 Letterhead across all pages */}
                 {renderStandardLetterhead('Technical Deliverable')}
 
-                {/* Editable Rich Document Content */}
+                {/* Running Header on Paper */}
+                <div className="border-b border-slate-200 pb-2 flex items-center justify-between text-xs text-slate-500 font-mono">
+                  <div>
+                    <span className="font-bold text-slate-800 block">{doc.title.toUpperCase()}</span>
+                    <span>Doc Ref: <strong className="text-slate-900">{doc.contractorDocumentNumber || doc.documentNumber}</strong></span>
+                  </div>
+                  <div className="text-right">
+                    {cfg.showClientDocNumber && doc.clientDocumentNumber && (
+                      <span>Client Ref: <strong className="text-slate-900">{doc.clientDocumentNumber}</strong></span>
+                    )}
+                    <span className="ml-3">Rev: <strong className="text-slate-900">{doc.currentRevision}</strong></span>
+                  </div>
+                </div>
 
                 {/* Editable Rich Document Content */}
                 <div
@@ -1499,7 +1493,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                           <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
                         </div>
                         <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
-                        <p className="text-xs text-sky-200">Official Commercial & Technical Deliverable</p>
+                        <p className="text-xs text-sky-200">Official High-Reliability Engineering & Commercial Deliverable</p>
                       </div>
                     </div>
                   )}
@@ -1660,7 +1654,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                   {cfg.showHoldPoints && (
                     <div className="space-y-2 pt-4">
                       <h4 className="font-bold text-xs uppercase tracking-wider text-white bg-blue-950 px-3 py-1.5 rounded-t">
-                        Project HOLD Point Register
+                        Engineering HOLD Point Register
                       </h4>
                       <div className="border-2 border-blue-950 text-xs overflow-hidden">
                         <table className="w-full text-left border-collapse">
@@ -1701,9 +1695,19 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 </div>
               )}
 
-              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With standard letterhead) */}
+              {/* PAGE 4+: PREPARED DOCUMENT CONTENT (With Page 2 letterhead) */}
               <div className="bg-white rounded-xl shadow-xl border border-slate-300 p-8 sm:p-12 font-sans text-slate-800 space-y-6 print:shadow-none print:border-none min-h-[900px]">
                 {renderStandardLetterhead('Document Body & Technical Content')}
+
+                <div className="border-b border-slate-200 pb-2 flex items-center justify-between text-xs text-slate-500 font-mono">
+                  <div>
+                    <span className="font-bold text-slate-800 block">{doc.title.toUpperCase()}</span>
+                    <span>Doc Ref: <strong className="text-slate-900">{doc.contractorDocumentNumber || doc.documentNumber}</strong></span>
+                  </div>
+                  <div className="text-right">
+                    <span>Rev: <strong className="text-slate-900">{doc.currentRevision}</strong></span>
+                  </div>
+                </div>
 
                 {/* Rendered HTML Content */}
                 <div
@@ -1712,8 +1716,8 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                 />
 
                 <div className="pt-8 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>PJMAK • {doc.projectName}</span>
-                  <span>End of Deliverable</span>
+                  <span>PJMAK Engineering • {doc.projectName}</span>
+                  <span>End of Technical Deliverable</span>
                 </div>
               </div>
             </div>
@@ -1854,7 +1858,7 @@ export const TechnicalDocumentEditorModal: React.FC<TechnicalDocumentEditorModal
                       <span>Project: {doc.projectCode} • Discipline: {doc.discipline}</span>
                     </div>
                     <h3 className="text-lg font-bold text-white">{doc.projectName}</h3>
-                    <p className="text-xs text-sky-200">Official Deliverable</p>
+                    <p className="text-xs text-sky-200">High Reliability Engineering Deliverable</p>
                   </div>
                 </div>
               )}

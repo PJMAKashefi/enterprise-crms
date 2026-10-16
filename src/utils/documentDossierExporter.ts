@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf';
 import { TechnicalDocument, FrontPageConfig, User } from '../types';
-import { normalizeDocumentNumber } from './documentNumbering';
 
 /**
  * High-fidelity HTML builder for the entire 3-Page Front Dossier + Body Content.
@@ -16,12 +15,11 @@ export function buildDossierHtml(
   const clientLogo = doc.clientLogoUrl || cfg.clientLogoUrl;
   const clientCompany = doc.clientCompany || '';
   const clientRole = doc.clientRoleLabel || cfg.clientRoleLabel || 'Client / Operator';
-  const displayDocNumber = normalizeDocumentNumber(doc.documentNumber || doc.contractorDocumentNumber || 'PRJ26-PJMAK-COM-PRP-0001');
-  const contractorDocNum = displayDocNumber;
+  const contractorDocNum = doc.contractorDocumentNumber || doc.documentNumber;
   const currentRev = doc.currentRevision || 'Rev 0';
   const issueReason = doc.reasonForIssue || 'For Review & Approval';
   const issueDate = doc.revisionDate || new Date().toISOString().slice(0, 10);
-  const authorName = doc.createdByUserName || currentUser?.name || 'Lead Author';
+  const authorName = doc.createdByUserName || currentUser?.name || 'Lead Engineer';
 
   // Common styles
   const tableStyle = 'width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;';
@@ -30,42 +28,27 @@ export function buildDossierHtml(
   const tdHeaderStyle = 'background-color: #F1F5F9; font-weight: bold; color: #0F172A; width: 22%; border: 1px solid #94A3B8; font-size: 9.5pt; padding: 7px 10px;';
   const tdValueStyle = 'color: #0F172A; border: 1px solid #94A3B8; font-size: 9.5pt; padding: 7px 10px;';
 
-  // Helper: Standard Page Top Header containing PJMAK Letterhead + Document Title & Reference Bar (Identical across ALL pages)
-  const renderPageHeaderHtml = (pageSubLabel?: string) => `
-    <div class="page-top-letterhead" style="margin-bottom: 20px;">
-      <table style="width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #0B1E36; padding-bottom: 12px; margin-bottom: 8px;">
-        <tr>
-          <td style="vertical-align: middle; width: 50%;">
-            <div style="display: inline-block; vertical-align: middle;">
-              <span style="font-size: 22pt; font-weight: 900; color: #0B1E36; letter-spacing: -0.5px; font-family: Arial, sans-serif;">PJMAK</span>
-            </div>
-          </td>
-          <td style="vertical-align: middle; text-align: right; width: 50%;">
-            ${clientCompany ? `
-              <div style="font-size: 15pt; font-weight: 800; color: #1E3A8A; font-family: Arial, sans-serif;">${clientCompany}</div>
-              <div style="font-size: 8.5pt; color: #64748B; font-weight: 600; text-transform: uppercase;">${clientRole}</div>
-            ` : `
-              <div style="font-size: 13pt; font-weight: 700; color: #0F172A;">${doc.projectName}</div>
-              <div style="font-size: 8.5pt; color: #64748B; font-family: monospace;">${doc.projectCode}${pageSubLabel ? ` • ${pageSubLabel}` : ''}</div>
-            `}
-          </td>
-        </tr>
-      </table>
-
-      <!-- Document Name and Document Reference Number sub-bar (Matching Page 4 on ALL Pages) -->
-      <div style="border-bottom: 1.5px solid #E2E8F0; padding-bottom: 6px;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="font-size: 10.5pt; font-weight: bold; color: #0F172A; text-transform: uppercase; font-family: Arial, sans-serif;">
-              ${doc.title.toUpperCase()}
-            </td>
-            <td style="text-align: right; font-size: 9pt; color: #475569; font-family: monospace; white-space: nowrap;">
-              Doc Ref: <strong style="color: #0F172A;">${displayDocNumber}</strong> | Rev: <strong style="color: #0F172A;">${currentRev}</strong>
-            </td>
-          </tr>
-        </table>
-      </div>
-    </div>
+  // Helper: Standard Page Letterhead
+  const renderLetterheadHtml = (pageSubLabel: string) => `
+    <table style="width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #0B1E36; padding-bottom: 12px; margin-bottom: 24px;">
+      <tr>
+        <td style="vertical-align: middle; width: 50%;">
+          <div style="display: inline-block; vertical-align: middle;">
+            <span style="font-size: 22pt; font-weight: 900; color: #0B1E36; letter-spacing: -0.5px; font-family: Arial, sans-serif;">PJMAK</span>
+            <span style="display: block; font-size: 8pt; color: #64748B; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Engineering & Technical Deliverables</span>
+          </div>
+        </td>
+        <td style="vertical-align: middle; text-align: right; width: 50%;">
+          ${clientCompany ? `
+            <div style="font-size: 15pt; font-weight: 800; color: #1E3A8A; font-family: Arial, sans-serif;">${clientCompany}</div>
+            <div style="font-size: 8.5pt; color: #64748B; font-weight: 600; text-transform: uppercase;">${clientRole}</div>
+          ` : `
+            <div style="font-size: 13pt; font-weight: 700; color: #0F172A;">${doc.projectName}</div>
+            <div style="font-size: 8.5pt; color: #64748B; font-family: monospace;">${doc.projectCode} • ${pageSubLabel}</div>
+          `}
+        </td>
+      </tr>
+    </table>
   `;
 
   // --- PAGE 1: CONTROL SHEET ---
@@ -73,7 +56,7 @@ export function buildDossierHtml(
   if (cfg.showPage1ControlSheet) {
     page1Html = `
       <div class="dossier-page page-1" style="${isWord ? 'page-break-after: always; mso-break-type: page-break;' : 'page-break-after: always; break-after: page; min-height: 980px;'} padding: 10px 0;">
-        ${renderPageHeaderHtml('Page 1 of Dossier: Document Control')}
+        ${renderLetterheadHtml('Page 1 of Dossier: Document Control')}
 
         <div style="background-color: #0B1E36; color: #FFFFFF; padding: 12px 16px; border-radius: 4px; font-weight: 800; font-size: 12pt; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">
           DOCUMENT CONTROL SHEET — FORMAL TRANSMITTAL METADATA
@@ -167,7 +150,7 @@ export function buildDossierHtml(
 
     page2Html = `
       <div class="dossier-page page-2" style="${isWord ? 'page-break-after: always; mso-break-type: page-break;' : 'page-break-after: always; break-after: page; min-height: 980px;'} padding: 10px 0;">
-        ${renderPageHeaderHtml('Page 2 of Dossier: Formal Cover')}
+        ${renderLetterheadHtml('Page 2 of Dossier: Formal Cover')}
 
         <div style="text-align: center; padding: 36px 12px 24px 12px;">
           <h1 style="font-size: 26pt; font-weight: 900; color: #020617; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: -0.5px; line-height: 1.25;">
@@ -189,7 +172,7 @@ export function buildDossierHtml(
               ${doc.projectName}
             </div>
             <div style="font-size: 9.5pt; color: #94A3B8;">
-              Official PJMAK Commercial & Advisory Deliverable
+              Official High-Reliability Engineering & Commercial Deliverable
             </div>
           </div>
         ` : ''}
@@ -265,7 +248,7 @@ export function buildDossierHtml(
   if (cfg.showPage3RevisionHoldPoints) {
     page3Html = `
       <div class="dossier-page page-3" style="${isWord ? 'page-break-after: always; mso-break-type: page-break;' : 'page-break-after: always; break-after: page; min-height: 980px;'} padding: 10px 0;">
-        ${renderPageHeaderHtml('Page 3 of Dossier: History & HOLD Register')}
+        ${renderLetterheadHtml('Page 3 of Dossier: History & HOLD Register')}
 
         ${cfg.showRevisionHistory ? `
           <div style="margin-bottom: 24px;">
@@ -293,7 +276,7 @@ export function buildDossierHtml(
                     <tr>
                       <td style="${tdStyle} font-family: monospace; font-weight: bold;">${currentRev}</td>
                       <td style="${tdStyle} font-weight: 600;">All</td>
-                      <td style="${tdStyle}">Initial issue for review and commercial alignment</td>
+                      <td style="${tdStyle}">Initial issue for review and technical evaluation</td>
                     </tr>
                   `
                 }
@@ -305,7 +288,7 @@ export function buildDossierHtml(
         ${cfg.showHoldPoints ? `
           <div style="margin-top: 20px;">
             <div style="background-color: #0B1E36; color: #FFFFFF; padding: 8px 12px; font-weight: bold; font-size: 9.5pt; text-transform: uppercase;">
-              Project HOLD Point Register
+              Engineering HOLD Point Register
             </div>
             <table style="${tableStyle} border: 1px solid #0B1E36; margin-top: 0;">
               <thead>
@@ -339,8 +322,8 @@ export function buildDossierHtml(
                   : `
                     <tr>
                       <td style="${tdStyle} font-family: monospace; font-weight: bold; text-align: center;">1</td>
-                      <td style="${tdStyle} font-weight: 600;">Baseline commercial proposal review and scope alignment</td>
-                      <td style="${tdStyle}">Client Representative / Project Manager</td>
+                      <td style="${tdStyle} font-weight: 600;">Design verification and baseline technical submittal review</td>
+                      <td style="${tdStyle}">Client Representative / Lead Engineer</td>
                       <td style="${tdStyle} text-align: center;"><span style="background-color: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 8pt; font-weight: bold;">CLOSED</span></td>
                     </tr>
                   `
@@ -355,14 +338,25 @@ export function buildDossierHtml(
 
   // --- PAGE 4+: PREPARED DOCUMENT CONTENT ---
   const bodyContent = doc.bodyHtml || `
-    <p>This document presents the strategic business proposal, methodology, and commercial execution requirements in accordance with project baseline agreements.</p>
+    <p>This document presents the principal technical specifications, methodology, and engineering execution requirements in accordance with project baseline agreements.</p>
     <h4>1.1 Purpose of Document</h4>
-    <p>The purpose of this deliverable is to establish formal commercial parameters, operational procedures, and compliance standards for review and approval.</p>
+    <p>The purpose of this deliverable is to establish formal engineering parameters, operational procedures, and compliance standards for review and approval.</p>
   `;
 
   const pageContentHtml = `
     <div class="dossier-page page-content" style="padding: 10px 0;">
-      ${renderPageHeaderHtml('Document Body & Technical Content')}
+      ${renderLetterheadHtml('Document Body & Technical Content')}
+
+      <div style="border-bottom: 1.5px solid #E2E8F0; padding-bottom: 8px; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="font-size: 11pt; font-weight: bold; color: #0F172A;">${doc.title.toUpperCase()}</td>
+            <td style="text-align: right; font-size: 9pt; color: #64748B; font-family: monospace;">
+              Doc Ref: <strong>${contractorDocNum}</strong> | Rev: <strong>${currentRev}</strong>
+            </td>
+          </tr>
+        </table>
+      </div>
 
       <div class="document-body" style="font-size: 11pt; line-height: 1.65; color: #1E293B;">
         ${bodyContent}
@@ -371,8 +365,8 @@ export function buildDossierHtml(
       <div style="margin-top: 40px; padding-top: 14px; border-top: 1px solid #CBD5E1; color: #94A3B8; font-size: 8.5pt; font-family: monospace;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td>PJMAK • ${doc.projectName}</td>
-            <td style="text-align: right;">End of Deliverable</td>
+            <td>PJMAK Engineering • ${doc.projectName}</td>
+            <td style="text-align: right;">End of Technical Deliverable</td>
           </tr>
         </table>
       </div>
@@ -479,17 +473,11 @@ export function printTechnicalDocumentDossier(
     <html>
       <head>
         <meta charset="utf-8">
-        <title></title>
+        <title>${doc.contractorDocumentNumber || doc.documentNumber} - ${doc.title}</title>
         <style>
           @page {
             size: A4 portrait;
-            margin: 0 !important; /* Strips browser header (date, title) and footer (localhost:3000 URL) */
-          }
-          @page :left {
-            margin: 0 !important;
-          }
-          @page :right {
-            margin: 0 !important;
+            margin: 12mm 15mm 12mm 15mm;
           }
           * {
             box-sizing: border-box;
@@ -518,10 +506,6 @@ export function printTechnicalDocumentDossier(
           p { margin: 0 0 10px 0; line-height: 1.6; }
           ul, ol { margin: 0 0 12px 0; padding-left: 24px; }
           li { margin-bottom: 4px; line-height: 1.5; }
-          .dossier-page {
-            padding: 12mm 15mm 12mm 15mm !important;
-            box-sizing: border-box !important;
-          }
           .page-1, .page-2, .page-3 {
             page-break-after: always !important;
             break-after: page !important;
@@ -607,12 +591,12 @@ export function generateTechnicalDocumentPdf(
   const margin = 18;
   const contentWidth = pageWidth - margin * 2;
 
-  const contractorDocNum = normalizeDocumentNumber(doc.documentNumber || doc.contractorDocumentNumber || 'PRJ26-PJMAK-COM-PRP-0001');
+  const contractorDocNum = doc.contractorDocumentNumber || doc.documentNumber;
   const currentRev = doc.currentRevision || 'Rev 0';
   const issueDate = doc.revisionDate || new Date().toISOString().slice(0, 10);
-  const authorName = doc.createdByUserName || currentUser?.name || 'Lead Author';
+  const authorName = doc.createdByUserName || currentUser?.name || 'Lead Engineer';
 
-  // Helper for letterhead on each page (Includes PJMAK Letterhead + Document Title & Reference Bar)
+  // Helper for letterhead on each page
   const drawLetterhead = (pageLabel: string) => {
     // PJMAK Bold Title
     pdf.setFont('helvetica', 'bold');
@@ -623,6 +607,11 @@ export function generateTechnicalDocumentPdf(
     // Amber Accent Crown
     pdf.setFillColor(245, 158, 11);
     pdf.triangle(margin + 33, margin + 2, margin + 35, margin - 1, margin + 37, margin + 2, 'F');
+
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(100, 116, 139);
+    pdf.text('ENGINEERING & TECHNICAL DELIVERABLES', margin, margin + 9);
 
     // Client or Project info on right
     if (doc.clientCompany) {
@@ -644,36 +633,20 @@ export function generateTechnicalDocumentPdf(
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 116, 139);
-      pdf.text(doc.projectCode, pageWidth - margin, margin + 9, { align: 'right' });
+      pdf.text(`${doc.projectCode} • ${pageLabel}`, pageWidth - margin, margin + 9, { align: 'right' });
     }
 
-    // Border divider for letterhead
+    // Border divider
     pdf.setDrawColor(11, 30, 54);
     pdf.setLineWidth(0.8);
-    pdf.line(margin, margin + 12, pageWidth - margin, margin + 12);
-
-    // Document Name and Document Reference Number Sub-bar on ALL Pages (matching Page 4)
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9);
-    pdf.setTextColor(15, 23, 42);
-    const shortTitle = pdf.splitTextToSize(doc.title.toUpperCase(), contentWidth - 62)[0] || doc.title.toUpperCase();
-    pdf.text(shortTitle, margin, margin + 17);
-
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(71, 85, 105);
-    pdf.text(`Doc Ref: ${contractorDocNum} | Rev: ${currentRev}`, pageWidth - margin, margin + 17, { align: 'right' });
-
-    pdf.setDrawColor(226, 232, 240);
-    pdf.setLineWidth(0.3);
-    pdf.line(margin, margin + 19.5, pageWidth - margin, margin + 19.5);
+    pdf.line(margin, margin + 13, pageWidth - margin, margin + 13);
   };
 
   // --- PAGE 1: CONTROL SHEET ---
   let pageCount = 1;
   drawLetterhead('Page 1 of Dossier: Document Control');
 
-  let curY = margin + 26;
+  let curY = margin + 20;
 
   // Header Banner
   pdf.setFillColor(11, 30, 54);
@@ -789,7 +762,7 @@ export function generateTechnicalDocumentPdf(
   pdf.addPage();
   pageCount++;
   drawLetterhead('Page 2 of Dossier: Formal Cover');
-  curY = margin + 28;
+  curY = margin + 26;
 
   // Huge Bold Title
   pdf.setFont('helvetica', 'bold');
@@ -820,7 +793,7 @@ export function generateTechnicalDocumentPdf(
   pdf.text(doc.projectName, pageWidth / 2, curY + 14, { align: 'center' });
   pdf.setFontSize(8);
   pdf.setTextColor(148, 163, 184);
-  pdf.text('Official PJMAK Commercial & Advisory Deliverable', pageWidth / 2, curY + 20, { align: 'center' });
+  pdf.text('Official High-Reliability Engineering & Commercial Deliverable', pageWidth / 2, curY + 20, { align: 'center' });
   curY += 32;
 
   // Sign-off Matrix Table
@@ -877,7 +850,7 @@ export function generateTechnicalDocumentPdf(
   pdf.addPage();
   pageCount++;
   drawLetterhead('Page 3 of Dossier: History & HOLD Register');
-  curY = margin + 26;
+  curY = margin + 20;
 
   // Revision change log
   pdf.setFont('helvetica', 'bold');
@@ -917,7 +890,7 @@ export function generateTechnicalDocumentPdf(
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(9.5);
   pdf.setTextColor(15, 23, 42);
-  pdf.text('PROJECT HOLD POINT REGISTER', margin, curY);
+  pdf.text('ENGINEERING HOLD POINT REGISTER', margin, curY);
   curY += 3;
 
   pdf.setFillColor(15, 23, 42);
@@ -958,7 +931,23 @@ export function generateTechnicalDocumentPdf(
   pdf.addPage();
   pageCount++;
   drawLetterhead('Document Body & Technical Content');
-  curY = margin + 26;
+  curY = margin + 18;
+
+  // Title bar
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(11);
+  pdf.setTextColor(15, 23, 42);
+  pdf.text(doc.title.toUpperCase(), margin, curY);
+
+  pdf.setFontSize(8.5);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100, 116, 139);
+  pdf.text(`Ref: ${contractorDocNum} | Rev: ${currentRev}`, pageWidth - margin, curY, { align: 'right' });
+
+  curY += 4;
+  pdf.setDrawColor(226, 232, 240);
+  pdf.line(margin, curY, pageWidth - margin, curY);
+  curY += 7;
 
   // Parse HTML into text paragraphs
   const cleanBodyText = (doc.bodyHtml || '')
@@ -992,7 +981,7 @@ export function generateTechnicalDocumentPdf(
       pdf.addPage();
       pageCount++;
       drawLetterhead('Document Body & Technical Content');
-      curY = margin + 26;
+      curY = margin + 20;
     }
 
     if (trimmed.startsWith('### ')) {
@@ -1012,7 +1001,7 @@ export function generateTechnicalDocumentPdf(
           pdf.addPage();
           pageCount++;
           drawLetterhead('Document Body & Technical Content');
-          curY = margin + 26;
+          curY = margin + 20;
         }
         pdf.text(sLine, margin, curY);
         curY += 5.2;
@@ -1028,7 +1017,7 @@ export function generateTechnicalDocumentPdf(
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(148, 163, 184);
     pdf.text(
-      `PJMAK • ${contractorDocNum} • Page ${i} of ${totalPages}`,
+      `PJMAK Engineering • ${contractorDocNum} • Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 8,
       { align: 'center' }

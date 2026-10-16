@@ -144,50 +144,26 @@ export function getNextTechnicalDocumentNumber(params: {
   };
 }
 
+/**
+ * Repairs an existing document number that may have suffered from the PRJ20 truncation bug
+ * or an outdated discipline after switching.
+ */
 export function normalizeDocumentNumber(
-  docNumber?: string | null,
+  docNumber: string,
   newDiscipline?: DocumentDiscipline,
   newDocType?: DocumentTypeCode
 ): string {
-  if (!docNumber || !docNumber.trim()) return '';
-  let normalized = docNumber.trim();
-
-  // Fix internal spaces between segments, e.g. "PRJ20260-PJMAK TEC-PRP-OOI" -> "PRJ20260-PJMAK-TEC-PRP-OOI"
-  normalized = normalized.replace(/\s+/g, '-');
-
-  // Repair PRJ20260 -> PRJ26
-  normalized = normalized.replace(/^PRJ20260[-_]?/i, 'PRJ26-');
-
-  // Repair PRJ2026 -> PRJ26
-  normalized = normalized.replace(/^PRJ2026[-_]?/i, 'PRJ26-');
+  if (!docNumber) return docNumber;
+  let normalized = docNumber;
 
   // Repair PRJ20 -> PRJ26
-  normalized = normalized.replace(/^PRJ20[-_]?/i, 'PRJ26-');
+  if (normalized.startsWith('PRJ20-')) {
+    normalized = normalized.replace(/^PRJ20-/, 'PRJ26-');
+  }
 
-  // Repair PRJ-2026- -> PRJ26-
-  normalized = normalized.replace(/^PRJ[-_]2026[-_]?/i, 'PRJ26-');
-
-  // Repair PRJ-26- -> PRJ26-
-  normalized = normalized.replace(/^PRJ[-_]26[-_]?/i, 'PRJ26-');
-
-  // Repair OCR/typing errors at the end: OOI, OO1, etc.
-  normalized = normalized.replace(/[-_]([0O]{1,3}[1-9I]|[0O]{1,4})$/i, (m) => {
-    const cleanDigits = m.slice(1).replace(/O/gi, '0').replace(/I/gi, '1');
-    const parsed = parseInt(cleanDigits, 10);
-    const num = isNaN(parsed) || parsed < 1 ? 1 : parsed;
-    return `-${String(num).padStart(4, '0')}`;
-  });
-
-  // Ensure sequence number at the end is 4 digits (e.g. -001 -> -0001, -1 -> -0001)
-  normalized = normalized.replace(/-(\d{1,3})$/, (_, seq) => {
-    const parsed = parseInt(seq, 10);
-    const num = isNaN(parsed) || parsed < 1 ? 1 : parsed;
-    return `-${String(num).padStart(4, '0')}`;
-  });
-
-  // If no sequence digits found at the end, append -0001
-  if (!/-\d{3,5}$/.test(normalized)) {
-    normalized = `${normalized}-0001`;
+  // Repair PRJ2026 -> PRJ26
+  if (normalized.startsWith('PRJ2026-')) {
+    normalized = normalized.replace(/^PRJ2026-/, 'PRJ26-');
   }
 
   // Substitute discipline if requested

@@ -92,7 +92,7 @@ export const SecureProposalContent: React.FC<SecureProposalContentProps> = ({
               Technical & Commercial Proposal: Offshore Export Cable Installation
             </h3>
             <p className="text-xs text-slate-700 leading-relaxed">
-              PJMAK is pleased to submit this comprehensive commercial and advisory proposal to <strong>{document.clientCompany}</strong> for the strategic management, business advisory, and case services associated with the <strong>{document.projectName} ({document.projectCode})</strong> development.
+              PJMAK Process & Energy Engineering is pleased to submit this comprehensive technical and commercial tender proposal to <strong>{document.clientCompany}</strong> for the turnkey engineering, trenching, and cable protection works associated with the <strong>{document.projectName} ({document.projectCode})</strong> development.
             </p>
           </div>
 
@@ -353,7 +353,7 @@ export const SecureProposalContent: React.FC<SecureProposalContentProps> = ({
               Lump-Sum Investment & Milestone Schedule
             </h3>
             <p className="text-xs text-slate-700 leading-relaxed">
-              PJMAK offers a firm, lump-sum commercial price covering project advisory, management execution, and final executive dossier delivery.
+              PJMAK offers a firm, lump-sum turnkey price covering mobilization, subsea engineering, trenching execution, and final as-built dossier delivery.
             </p>
           </div>
 

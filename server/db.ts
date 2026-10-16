@@ -61,16 +61,15 @@ let db: DatabaseSchema;
 
 export const INITIAL_CONFIDENTIAL_PROPOSAL: TechnicalDocument = {
   id: 'doc-prop-001',
-  documentNumber: 'PRJ26-PJMAK-COM-PRP-0001',
-  contractorDocumentNumber: 'PRJ26-PJMAK-COM-PRP-0001',
-  title: 'Commercial & Advisory Proposal — Strategic Case Management Services',
-  description: 'Commercial methodology, business strategy execution framework, pricing schedule, and client acceptance questionnaire.',
+  documentNumber: 'PRJ26-PJMAK-COM-PRP-001',
+  title: 'Confidential Commercial & Technical Proposal — Offshore Subsea Export Cable Engineering, Pull-in & Protection Services',
+  description: 'Confidential technical methodology, dynamic riser simulation, pull-in engineering execution, HSE DNV-ST-N001 compliance, milestone pricing schedule, and client acceptance questionnaire for North Sea Grid Connection.',
   discipline: 'COM',
   documentType: 'PRP',
   originator: 'PJMAK',
   sequenceNumber: 1,
   projectCode: 'PRJ26',
-  projectName: 'North Sea Wind Grid Advisory Connection (Hub 4)',
+  projectName: 'North Sea Wind Export Cable Grid Connection (Hub 4)',
   clientCompany: 'Offshore Energy Operator',
   clientContactPerson: 'Marcus Van Dijk',
   clientEmail: 'm.vandijk@energy-operator.eu',
@@ -78,7 +77,7 @@ export const INITIAL_CONFIDENTIAL_PROPOSAL: TechnicalDocument = {
   createdByUserName: 'Ali Kashefi',
   currentRevision: 'Rev 0',
   revisionDate: '2026-09-15',
-  reasonForIssue: 'Confidential Commercial Proposal for Client Evaluation',
+  reasonForIssue: 'Confidential Commercial & Technical Proposal for Client Evaluation',
   reviewStatus: 'under_review',
   commercialValue: 485000,
   currency: 'EUR',
@@ -184,7 +183,7 @@ function getInitialData(): DatabaseSchema {
 
   const departments: Department[] = [
     { id: 'dept-1', name: 'Executive Leadership', code: 'EX', headUserId: 'usr-admin-1' },
-    { id: 'dept-2', name: 'Consulting & Advisory Services', code: 'CON' },
+    { id: 'dept-2', name: 'Engineering & Technical Services', code: 'ENG' },
     { id: 'dept-3', name: 'Project Operations', code: 'OPS' },
     { id: 'dept-4', name: 'Document Control & Registry', code: 'REG' },
     { id: 'dept-5', name: 'Commercial & Legal', code: 'COM' },
@@ -626,42 +625,11 @@ export function initDatabase(): DatabaseSchema {
         }
       }
       if (!db.templates) db.templates = initial.templates;
+      if (!db.archiveFolders) db.archiveFolders = initial.archiveFolders;
       if (!db.technicalDocuments) db.technicalDocuments = [];
-      // Ensure the confidential commercial proposal exists if technicalDocuments is empty
-      if (db.technicalDocuments.length === 0 && !db.technicalDocuments.some((d) => d.id === 'doc-prop-001')) {
+      // Ensure the confidential commercial & technical proposal exists if technicalDocuments is empty
+      if (db.technicalDocuments.length === 0 && !db.technicalDocuments.some((d) => d.documentNumber === 'PRJ26-PJMAK-COM-PRP-001')) {
         db.technicalDocuments.unshift(INITIAL_CONFIDENTIAL_PROPOSAL);
-      }
-
-      // Automatic data upgrade for ALL technical documents (even already created ones):
-      // Clean up legacy numbers, repair PRJ20/PRJ2026/PRJ20260 to PRJ26, ensure 4-digit sequence,
-      // and keep contractorDocumentNumber synchronized with documentNumber.
-      if (db.technicalDocuments && db.technicalDocuments.length > 0) {
-        db.technicalDocuments.forEach((doc) => {
-          let num = (doc.documentNumber || doc.contractorDocumentNumber || '').trim();
-          num = num.replace(/\s+/g, '-');
-          num = num.replace(/^PRJ20260[-_]?/i, 'PRJ26-');
-          num = num.replace(/^PRJ2026[-_]?/i, 'PRJ26-');
-          num = num.replace(/^PRJ20[-_]?/i, 'PRJ26-');
-          num = num.replace(/^PRJ[-_]2026[-_]?/i, 'PRJ26-');
-          num = num.replace(/^PRJ[-_]26[-_]?/i, 'PRJ26-');
-          num = num.replace(/[-_]([0O]{1,3}[1-9I]|[0O]{1,4})$/i, (m) => {
-            const cleanDigits = m.slice(1).replace(/O/gi, '0').replace(/I/gi, '1');
-            const parsed = parseInt(cleanDigits, 10);
-            return `-${String(isNaN(parsed) || parsed < 1 ? 1 : parsed).padStart(4, '0')}`;
-          });
-          num = num.replace(/-(\d{1,3})$/, (_, seq) => {
-            const parsed = parseInt(seq, 10);
-            return `-${String(isNaN(parsed) || parsed < 1 ? 1 : parsed).padStart(4, '0')}`;
-          });
-          if (!/-\d{3,5}$/.test(num)) {
-            num = `${num}-0001`;
-          }
-          doc.documentNumber = num;
-          doc.contractorDocumentNumber = num;
-          if (doc.projectCode === 'PRJ20' || doc.projectCode === 'PRJ2026' || doc.projectCode === 'PRJ20260') {
-            doc.projectCode = 'PRJ26';
-          }
-        });
       }
       if (!db.externalAccessSessions) db.externalAccessSessions = [];
       if (!db.documentShares) db.documentShares = [];
